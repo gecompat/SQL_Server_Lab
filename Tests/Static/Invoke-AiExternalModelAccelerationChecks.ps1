@@ -269,13 +269,14 @@ try {
     Add-CheckResult 'SQL-Plan bleibt geheimnisfrei und lässt SQL, Restart, Accelerator und Cleanup offen' (
         (($sqlPlan|ConvertTo-Json -Depth 10) -notmatch '(?i)(bearer|password|api.?key|secret.{0,3}:|C:\\|/home/)') -and
         @($sqlPlan.PendingEvidence) -join ',' -eq 'SQL_EXTERNAL_MODEL_CREATED,SQL_EMBEDDING_VERIFIED,SQL_RESTART_VERIFIED,ACCELERATOR_RUNTIME_ATTESTATION,SQL_CLEANUP_VERIFIED')
-    $runId=[guid]::NewGuid().ToString('D');$scopeId=[guid]::NewGuid().ToString('D');$databaseGuid=[guid]::NewGuid().ToString('D')
+    $runId=[guid]::NewGuid().ToString('D');$scopeId=[guid]::NewGuid().ToString('D');$databaseGuid='abcdef01-2345-4678-9abc-def012345678'
     $bindingIdentity=[ordered]@{RunId=$runId;ScopeId=$scopeId;InstanceId='primary';Provider='docker';ResourceId='owned-container'}
     $validSqlRow=[PSCustomObject]@{
         SqlMajorVersion=17;DatabaseId=5;DatabaseName='AiLab';DatabaseStatus='ONLINE';IsReadWrite=$true;DatabaseGuid=$databaseGuid
         HasDatabaseMasterKey=$true;HasControlDatabase=$true;HasCreateExternalModel=$true;CredentialExists=$false;ExternalModelExists=$false;OwnershipTableExists=$false
     }
     $sqlRow=[Runtime.CompilerServices.StrongBox[object]]::new($validSqlRow.PSObject.Copy())
+    $sqlRow.Value.DatabaseGuid=$databaseGuid.ToUpperInvariant()
     $sqlCapture=[Runtime.CompilerServices.StrongBox[object]]::new()
     $sqlExecutor={param($query,$parameters,$database)$sqlCapture.Value=[PSCustomObject]@{Query=$query;Parameters=$parameters;Database=$database};$sqlRow.Value}.GetNewClosure()
     $preflight=& $module {param($p,$run,$executor,$identity)Invoke-LabAiExternalModelSqlPreflight -SqlPlan $p -RunId $run -SqlExecutor $executor -Binding ([PSCustomObject]@{}) -BindingIdentity $identity} $sqlPlan $runId $sqlExecutor $bindingIdentity

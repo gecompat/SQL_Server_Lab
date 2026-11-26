@@ -679,8 +679,12 @@ mit dem freien Platz der Daten- und Log-Standardvolumes eines separaten
 laufenden SQL-2025-Prepared-Labs. Die zwei Lesungen bilden keinen atomaren
 Gast-Snapshot. Die Vorschau erteilt keine Aussage zu Backupplatz, Wachstum,
 Hostkapazität, alternativen Zielpfaden oder Wiederherstellbarkeit. Der
-kombinierte Bedien- und Prüfschritt ist synthetisch validiert. Die
-beiden Einzelbeobachtungen haben getrennte native Nachweise.
+kombinierte Bedienpfad ist synthetisch validiert. Der native Key18-Lauf
+prüfte beide Gastbeobachtungen gleichzeitig und bestätigte die exakten
+Daten- und Logdateigrößen der eigenen Testdatenbank, die Berechnung je
+Zielvolume und die vollständige Bereinigung beider Testumgebungen.
+Der Gesamtplan bleibt `BLOCKED` mit `TransferAuthority=NONE`.
+[Key18-Lauf 45742408943](https://github.com/gecompat/SQL_Server_Lab/actions/runs/45742408943)
 Die Gastprobe mit den ursprünglichen neun Zählern bestand für SQL Server 2025 Developer auf Hyper-V im
 [Lauf 45343380820](https://github.com/gecompat/SQL_Server_Lab/actions/runs/45343380820).
 Das [erweiterte native Gastinventar](https://github.com/gecompat/SQL_Server_Lab/actions/runs/45418884558) bestätigte elf Zähler

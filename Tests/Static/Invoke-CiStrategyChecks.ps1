@@ -497,6 +497,13 @@ foreach ($other in @('Private/UnmappedSynthetic.ps1','Private/CleanupEngine.ps1'
         @($baseline.StaticChecks | Where-Object { $_ -notin $union.StaticChecks }).Count -eq 0)
 }
 $tlsTargetCheck = 'Invoke-AuthenticatedTlsTargetChecks.ps1'
+foreach ($fixture in @('Tests/Static/Invoke-EvaluationRefreshPlanChecks.ps1','Tests\Static\Invoke-EvaluationRefreshPlanChecks.ps1')) {
+    $compositionSelection = & $selector -ChangedPath $fixture
+    Add-CheckResult "Evaluation refresh fixture selects its browser composition consumer: $fixture" (
+        'Invoke-ReviewedBrowserCompositionChecks.ps1' -in $compositionSelection.StaticChecks -and
+        -not ($compositionSelection.Docker -or $compositionSelection.Podman -or $compositionSelection.HyperV -or
+            $compositionSelection.Mixed -or $compositionSelection.Adapter))
+}
 $readerSelection=& $selector -ChangedPath @('Private/DiagnosticBundleReader.ps1')
 foreach($check in @('Invoke-DiagnosticBundleChecks.ps1','Invoke-ContainerAutoStartChecks.ps1','Invoke-ContainerReconcileChecks.ps1','Invoke-ComponentRelationPlanChecks.ps1','Invoke-EvaluationRefreshPlanChecks.ps1')) {
     Add-CheckResult "CU-Bindung gemeinsamer Readeraufrufer $check" ($check -in $readerSelection.StaticChecks)

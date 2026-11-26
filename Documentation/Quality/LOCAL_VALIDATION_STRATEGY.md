@@ -2510,6 +2510,20 @@ Prepared-Vorlage und den vollständigen Cleanup beider eigener Runs samt
 VMs und Disks. Für SQL-Readiness und Transfer stehen eigene Nachweise aus.
 [Nativer Key18-Lauf](https://github.com/gecompat/SQL_Server_Lab/actions/runs/45463261705)
 
+### Nativer kombinierter Vergleich von Dateizuweisung und Zielspeicher
+
+Auf `6979d649440de9bc5dabd7cce44b81764a5a1a8d` bestand der
+[Key18-Lauf 45742408943](https://github.com/gecompat/SQL_Server_Lab/actions/runs/45742408943)
+den manuellen Modus `evaluation-target-file-allocation-acceptance`.
+Die gebundene SQL-Quelle war nach dem erneuten Start erreichbar. Eine
+synthetische Datenbank erhöhte die Quellsummen exakt um ihre Daten- und
+Logdateigrößen. Die Zielseite übernahm die gemessenen freien Bytes je
+Volume, gemeinsam genutzte Volumes genau einmal. Beide VMs liefen
+gleichzeitig. Der Lauf bestätigte unveränderte Vorlage, Run- und
+Verbindungsmetadaten sowie `REMOVED` für beide eigenen Runs samt VMs
+und Disks. Backupbedarf, Übernahme und Gleichwertigkeit liegen außerhalb
+dieses Nachweises.
+
 ## Prospektiver External-Languages-Capability-Entscheid
 
 `Invoke-ExternalRuntimeCapabilityBrowserChecks.ps1` prüft die extrahierte echte
@@ -3323,6 +3337,23 @@ SQL-2025-Version, `ONLINE`/`READ_WRITE`, Database Master Key, beide Rechte und
 freie Credential-/Modellnamen. Version, Zustand, Master Key, Rechte,
 Namenskollisionen einschließlich des abgeleiteten Ownership-Tabellennamens und
 manipulierte Pläne besitzen getrennte Negativfälle.
+`Invoke-AiExternalModelHyperVBindingChecks.ps1` prüft die VM-Bindung zusätzlich
+mit synthetischen Adapterdaten. Eine fremde oder fehlende Gastadresse, ein
+Hostname, Loopback, ein ungültiger Port und ein Adapter-Lesefehler blockieren
+den Verbindungsaufbau vor der Abfrage des SA-Secrets.
+
+Die Präflight-Quittung verwendet kanonische Kleinbuchstaben für SQL-
+Datenbank-GUIDs. Die fokussierte Fixture gibt die GUID absichtlich in
+Großbuchstaben zurück und prüft den Quittungshash und das Schema. Der lokale
+Docker-Lauf auf `7c7eaa61` prüfte den öffentlichen SQL-Preflight auf einer
+eigenen SQL-Server-2025-CU9-Testdatenbank: fehlender Master Key wird abgewiesen,
+nach dessen Anlage ist die Quittung gültig, die Datenbank enthält weiter
+weder External Model noch Database Scoped Credential. SQL und Cleanup wurden
+wirklich ausgeführt. Das Modell-Endpunktergebnis kam aus einer synthetischen
+Fixture. Der Vorlauf blieb wegen fehlgeschlagener positiver Quittungsprüfung
+ein FAIL. Beide eigenen Docker-Labs wurden mit Container und Volume
+bereinigt. Ein Modellserver sowie SQL-Preflight auf Podman und Hyper-V
+bleiben außerhalb dieses Nachweises.
 Der anschließende Apply-Executor wird mit injiziertem SQL-Transport auf
 transaktionale Reihenfolge, geheimnisfreies Vorjournal, exakte SQL-Postcondition,
 `WhatIf`, idempotente Beobachtung mit `-Resume`, verlorene Antworten,

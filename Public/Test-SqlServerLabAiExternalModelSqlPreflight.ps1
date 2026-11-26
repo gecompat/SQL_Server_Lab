@@ -9,7 +9,8 @@
     Ergebnis von Get-SqlServerLabAiExternalModelSqlPlan.
 .PARAMETER RunId
     Vorhandener eigener SQL-2025-Run mit verwaltetem SA-Secret. Hyper-V wird
-    zusätzlich an die gespeicherte und aktuell verwaltete VMId gebunden.
+    zusätzlich an die aktuell verwaltete VMId und deren beobachtete Gast-IP
+    gebunden. Eine unbestätigte Adresse verhindert den SQL-Verbindungsaufbau.
 .PARAMETER InstanceId
     SQL-Instanz, standardmäßig primary.
 .PARAMETER StateRoot
