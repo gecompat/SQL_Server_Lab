@@ -12,7 +12,7 @@
     Uses the same owned clone to verify a guided library backup and the guided
     restore into a new synthetic database. The library is test-local.
 .PARAMETER PreparedArtifactId
-    Optional sealed SQL 2025 Developer artifact for library restore acceptance.
+    Optional sealed SQL 2025 Developer artifact for one prepared acceptance scope.
     Uses one owned prepared run on an existing Host-Only network with activation
     egress denied. This option does not use a pre-existing Windows slot or media.
 #>
@@ -25,10 +25,13 @@ param(
     [string]$StateRoot,
     [string]$OperationId=('local-hv-sql-storage-'+[guid]::NewGuid().ToString('N')),
     [switch]$KeepOnFailure,
-    [switch]$VerifyLibraryRestore
+    [switch]$VerifyLibraryRestore,
+    [Parameter(ParameterSetName='Prepared')][switch]$VerifyGuidedDatabaseScript
 )
 $ErrorActionPreference='Stop'
-if ($PreparedArtifactId -and -not $VerifyLibraryRestore) { throw 'HYPERV_LIBRARY_RESTORE_ACCEPTANCE_PREPARED_SCOPE_REQUIRED' }
+if ($PreparedArtifactId -and ($VerifyLibraryRestore.IsPresent -eq $VerifyGuidedDatabaseScript.IsPresent)) {
+    throw 'HYPERV_LIBRARY_RESTORE_ACCEPTANCE_PREPARED_SCOPE_REQUIRED'
+}
 $repoRoot=(Resolve-Path (Join-Path $PSScriptRoot '..\..')).Path
 $modulePath=Join-Path $repoRoot 'SqlServerLab.psd1'
 $testRoot=Join-Path ([IO.Path]::GetTempPath()) ('sql-lab-hv-sql-storage-'+[guid]::NewGuid().ToString('N'))
@@ -71,7 +74,7 @@ function New-OwnedRun {
     } @($helper,$CloneSourceRunId,$ManifestPath,$OperationId,$MediaRoot,$MediaEdition,$SqlPassword,$StateRoot,$VerifyLibraryRestore.IsPresent)
 }
 
-function New-PreparedLibraryRestoreAcceptanceRun {
+function New-PreparedSqlStorageAcceptanceRun {
     param([string]$ManifestPath,[securestring]$SqlPassword)
 
     $artifact = Invoke-Private {
@@ -105,6 +108,49 @@ function New-PreparedLibraryRestoreAcceptanceRun {
         } @($preparedPath,$guestPassword,$SqlPassword,$StateRoot,$OperationId)
     } finally {
         $guestPassword.Dispose()
+    }
+}
+
+function Invoke-GuidedDatabaseScriptAcceptance {
+    param([Parameter(Mandatory)]$Context,[Parameter(Mandatory)][PSCredential]$GuestCredential)
+
+    $runId = [string]$Context.Run.runId
+    $scope = [string]$Context.Run.scopeId
+    $owned = Invoke-Private { param($Op,$Root) Get-LabOperationOwnedRun -OperationId $Op -StateRoot $Root } @($OperationId,$StateRoot)
+    if (-not $owned -or $owned.runId -cne $runId -or $owned.scopeId -cne $scope -or
+        -not (Test-ScopedTemporaryRoot $testRoot)) { throw 'HYPERV_GUIDED_DATABASE_SCRIPT_ACCEPTANCE_SCOPE_CHANGED' }
+
+    $phase = 'CREATE'
+    try {
+        $created = Invoke-Private {
+            param($Id,$Credential,$Sa)
+            Invoke-LabGuidedHyperVDatabaseCreate -RunId $Id -InstanceId primary -DatabaseName LabGuidedSqlFixture -GuestUserName $Credential.UserName -GuestPassword $Credential.Password -SaPassword $Sa
+        } @($runId,$GuestCredential,$script:saPassword)
+        Assert-HyperVSqlStorageAcceptance ($created.Status -ceq 'CREATED' -and $created.RunId -ceq $runId -and
+            $created.InstanceId -ceq 'primary' -and $created.DatabaseName -ceq 'LabGuidedSqlFixture') 'Guided database creation confirms the exact owned SQL target'
+
+        $phase = 'SCRIPT'
+        $sqlPath = Join-Path $testRoot 'guided-fixture.sql'
+        [IO.File]::WriteAllText($sqlPath,'CREATE TABLE dbo.GuidedFixture (Value int NOT NULL); INSERT INTO dbo.GuidedFixture VALUES (57);')
+        $scriptArguments = @{RunId=$runId;InstanceId='primary';StateRoot=$StateRoot;WindowsAuthentication=$true;ScriptPath=$sqlPath;Database='LabGuidedSqlFixture';Confirm=$false}
+        $result = Invoke-SqlServerLabScript @scriptArguments 3>$null 4>$null 5>$null 6>$null
+        $operation = [guid]::Empty
+        Assert-HyperVSqlStorageAcceptance ($result.Success -and $result.Outcome -ceq 'SUCCEEDED' -and $result.Authentication -ceq 'Windows' -and
+            $result.RunId -ceq $runId -and $result.InstanceId -ceq 'primary' -and $result.Batches -eq 1 -and
+            [guid]::TryParseExact([string]$result.OperationId,'D',[ref]$operation) -and $operation -ne [guid]::Empty) 'Windows SQL script returns a bound one-batch receipt'
+        $journal = Get-Content -LiteralPath (Join-Path $Context.RunDirectory "windows-sql-$operation.json") -Raw -Encoding utf8 | ConvertFrom-Json
+        Assert-HyperVSqlStorageAcceptance ($journal.ContractVersion -ceq 'SqlServerLab.WindowsSqlOperation/1.0' -and $journal.OperationId -ceq $operation.ToString() -and
+            $journal.Status -ceq 'SUCCEEDED' -and $journal.RunId -ceq $runId -and
+            $journal.ScopeId -ceq $scope -and $journal.InstanceId -ceq 'primary' -and [guid]$journal.VmId -eq [guid]$Context.Instance.vmId -and
+            $journal.ScriptSha256 -ceq (Get-FileHash -LiteralPath $sqlPath -Algorithm SHA256).Hash) 'Script journal binds the owned VM and exact executed bytes'
+
+        $phase = 'CONTENT'
+        $rows = @(Invoke-SqlRows $Context 'SELECT Value FROM LabGuidedSqlFixture.dbo.GuidedFixture;')
+        Assert-HyperVSqlStorageAcceptance ($rows.Count -eq 1 -and $rows[0].Value -ceq '57') 'Synthetic script data is visible in the selected SQL database'
+    } catch {
+        $code = ($_.Exception.Message -split ':',2)[0]
+        if ($code -cnotmatch '^(?:HYPERV_DATABASE_CREATE_(?:TARGET_(?:INVALID|NOT_READY|CHECK_FAILED|EXISTS)|UNCONFIRMED)|WINDOWS_SQL_(?:INPUT_INVALID|TARGET_UNAVAILABLE|OPERATION_UNCONFIRMED|NOT_DISPATCHED))$') { $code = 'UNCLASSIFIED' }
+        throw "HYPERV_GUIDED_DATABASE_SCRIPT_ACCEPTANCE_UNCONFIRMED · $phase · $code"
     }
 }
 
@@ -203,7 +249,7 @@ try {
     $manifestPath=Join-Path $testRoot 'sql-storage.json';New-StorageManifest $manifestPath ('hv-sql-storage-'+[guid]::NewGuid().ToString('N').Substring(0,8))
     Assert-HyperVSqlStorageAcceptance (Test-SqlServerLabManifest -Path $manifestPath).IsValid 'VerifyOnly-Manifest mit gebundenem Storage-Intent ist gueltig'
     $script:saPassword = Invoke-Private { New-HyperVSqlUnattendedPassword }
-    $lab = if ($PreparedArtifactId) { New-PreparedLibraryRestoreAcceptanceRun $manifestPath $script:saPassword }
+    $lab = if ($PreparedArtifactId) { New-PreparedSqlStorageAcceptanceRun $manifestPath $script:saPassword }
         else { New-OwnedRun $manifestPath $script:saPassword }
     Assert-HyperVSqlStorageAcceptance ([string]$lab.State -eq 'RUNNING') 'Operationseigener SQL-2025-Run ist bereit'
     $context=Get-Context $lab.RunId;$managed=Get-OwnedManagedVm $context
@@ -224,7 +270,11 @@ try {
         } @($context.RunDirectory)
         try {
             $guestCredential = [PSCredential]::new('Administrator',$guestPassword)
-            Invoke-StorageLibraryRestoreAcceptance -Context $context -GuestCredential $guestCredential -ExpectedVmId $managed.VM.Id -ExpectedStoragePlanId $storage.Receipt.PlanId
+            if ($VerifyGuidedDatabaseScript) {
+                Invoke-GuidedDatabaseScriptAcceptance -Context $context -GuestCredential $guestCredential
+            } else {
+                Invoke-StorageLibraryRestoreAcceptance -Context $context -GuestCredential $guestCredential -ExpectedVmId $managed.VM.Id -ExpectedStoragePlanId $storage.Receipt.PlanId
+            }
         } finally {
             if ($guestPassword) { $guestPassword.Dispose() }
         }

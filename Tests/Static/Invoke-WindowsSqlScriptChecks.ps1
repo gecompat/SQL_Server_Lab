@@ -160,10 +160,13 @@ try {
             return 'SyntheticDb'
         }
         function Read-LabConfirm {param($Prompt,$Default) $events.Confirmed -and -not $Default}
-        function Invoke-SqlServerLabScript {param($ScriptPath,$RunId,$InstanceId,$StateRoot,$Database,[switch]$WindowsAuthentication,[switch]$Confirm)
+        function Invoke-SqlServerLabScript {
+            [CmdletBinding(SupportsShouldProcess)]
+            param($ScriptPath,$RunId,$InstanceId,$StateRoot,$Database,[switch]$WindowsAuthentication)
+            if (-not $PSCmdlet.ShouldProcess('Synthetic SQL target','Execute synthetic script')) { return }
             $events.Calls++
             $events.Bound=$RunId -ceq $id -and $InstanceId -ceq 'primary' -and $StateRoot -ceq $directory -and
-                $ScriptPath -ceq $sql -and $Database -ceq 'SyntheticDb' -and $WindowsAuthentication -and -not $Confirm
+                $ScriptPath -ceq $sql -and $Database -ceq 'SyntheticDb' -and $WindowsAuthentication -and $PSBoundParameters.ContainsKey('Confirm') -and -not $PSBoundParameters.Confirm
         }
         & $Call
         $cancelled=$events.Calls -eq 0

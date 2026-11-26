@@ -744,7 +744,7 @@ sources_of_truth:
   validation_hyperv_storage_reconcile_acceptance_static: Tests/Static/Invoke-HyperVStorageReconcileAcceptanceChecks.ps1
   hyperv_sql_storage_reconcile_contract: Private/HyperVSqlStorageReconcile.ps1
   validation_hyperv_sql_storage_reconcile: Tests/Static/Invoke-HyperVSqlStorageReconcileChecks.ps1
-  validation_hyperv_sql_storage_reconcile_acceptance: Tests/Integration/Invoke-HyperVSqlStorageReconcileAcceptance.ps1, .github/workflows/runtime-smoke-hyperv.yml # optional manual library-restore mode on trusted main
+  validation_hyperv_sql_storage_reconcile_acceptance: Tests/Integration/Invoke-HyperVSqlStorageReconcileAcceptance.ps1, .github/workflows/runtime-smoke-hyperv.yml # manual prepared library restore or guided database/script on trusted main
   validation_hyperv_sql_storage_reconcile_acceptance_static: Tests/Static/Invoke-HyperVSqlStorageReconcileAcceptanceChecks.ps1
   hyperv_sql_configuration_reconcile_contract: Private/HyperVSqlConfigurationReconcile.ps1
   hyperv_sql_configuration_ownership_schema: Schemas/hyperv-sql-configuration-ownership.schema.json

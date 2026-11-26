@@ -35,8 +35,8 @@ $dispatchEnd=$workflowSource.IndexOf('.\Tests\Integration\Invoke-HyperVSqlStorag
 if($dispatchStart -lt 0 -or $dispatchEnd -le $dispatchStart){throw 'Library restore dispatch input binding missing'}
 $dispatch=[scriptblock]::Create($workflowSource.Substring($dispatchStart,$dispatchEnd-$dispatchStart)+[Environment]::NewLine+'$arguments')
 function Test-StorageAcceptanceDispatch {
-    param([string]$Prepared,[string]$Clone,[string]$Media,[bool]$Restore)
-    $values=[ordered]@{PREPARED_ARTIFACT_ID=$Prepared;CLONE_SOURCE_RUN_ID=$Clone;MEDIA_ROOT=$Media;MEDIA_EDITION='Enterprise';VERIFY_LIBRARY_RESTORE=$Restore.ToString().ToLowerInvariant()}
+    param([string]$Prepared,[string]$Clone,[string]$Media,[bool]$Restore,[switch]$Guided)
+    $values=[ordered]@{PREPARED_ARTIFACT_ID=$Prepared;CLONE_SOURCE_RUN_ID=$Clone;MEDIA_ROOT=$Media;MEDIA_EDITION='Enterprise';VERIFY_LIBRARY_RESTORE=$Restore.ToString().ToLowerInvariant();VERIFY_GUIDED_DATABASE_SCRIPT=$Guided.IsPresent.ToString().ToLowerInvariant()}
     $previous=@{}
     try {
         foreach($entry in $values.GetEnumerator()){
@@ -57,6 +57,10 @@ $defaultMedia=[regex]::Match($workflowSource,'(?ms)^  workflow_dispatch:\r?\n.*?
 if (-not $defaultMedia.Success) { throw 'Prepared workflow dispatch default missing' }
 $preparedDefaultArguments=Test-StorageAcceptanceDispatch -Prepared $artifact -Media $defaultMedia.Groups['Default'].Value -Restore $true
 $cloneArguments=Test-StorageAcceptanceDispatch -Clone synthetic-slot -Media synthetic-media -Restore $false
+$guidedArguments=Test-StorageAcceptanceDispatch -Prepared $artifact -Guided
+$guidedMissingArtifact=Test-StorageAcceptanceDispatch -Clone synthetic-slot -Guided
+$guidedConflicting=Test-StorageAcceptanceDispatch -Prepared $artifact -Guided -Restore $true
+$guidedCustomMedia=Test-StorageAcceptanceDispatch -Prepared $artifact -Guided -Media synthetic-media
 # Run the actual prepared-manifest transformation without touching a VM or a file.
 $manifestStart = $source.IndexOf('    $manifest = Get-Content -LiteralPath $ManifestPath')
 $manifestEnd = $source.IndexOf('    $preparedPath = Join-Path $testRoot', $manifestStart)
@@ -118,6 +122,7 @@ $checks=[ordered]@{
  'Prepared and clone dispatch pass only their own argument sets'=($preparedArguments.Count -eq 2 -and $preparedArguments.VerifyLibraryRestore -eq $true -and $preparedArguments.PreparedArtifactId -ceq $artifact -and $cloneArguments.Count -eq 4 -and $cloneArguments.CloneSourceRunId -ceq 'synthetic-slot' -and $cloneArguments.MediaRoot -ceq 'synthetic-media' -and -not $cloneArguments.VerifyLibraryRestore)
  'Prepared dispatch ignores the inherited workflow media default without opening a media or clone path'=($preparedDefaultArguments.Count -eq 2 -and $preparedDefaultArguments.VerifyLibraryRestore -eq $true -and $preparedDefaultArguments.PreparedArtifactId -ceq $artifact -and -not $preparedDefaultArguments.ContainsKey('MediaRoot') -and -not $preparedDefaultArguments.ContainsKey('CloneSourceRunId'))
  'Prepared dispatch refuses mixed source inputs and unrelated modes'=((Test-StorageAcceptanceDispatch -Prepared $artifact -Clone synthetic-slot -Restore $true) -ceq 'HYPERV_LIBRARY_RESTORE_CI_PREPARED_INPUT_CONFLICT' -and (Test-StorageAcceptanceDispatch -Prepared $artifact -Media synthetic-media -Restore $true) -ceq 'HYPERV_LIBRARY_RESTORE_CI_PREPARED_INPUT_CONFLICT' -and (Test-StorageAcceptanceDispatch -Prepared $artifact -Restore $false) -ceq 'HYPERV_LIBRARY_RESTORE_CI_PREPARED_INPUT_CONFLICT')
+ 'Guided acceptance binds one prepared artifact and rejects clone, restore and custom-media overlap'=($guidedArguments.Count -eq 3 -and $guidedArguments.VerifyGuidedDatabaseScript -eq $true -and -not $guidedArguments.VerifyLibraryRestore -and $guidedArguments.PreparedArtifactId -ceq $artifact -and $guidedMissingArtifact -ceq 'HYPERV_GUIDED_DATABASE_SCRIPT_CI_PREPARED_ARTIFACT_REQUIRED' -and $guidedConflicting -ceq 'HYPERV_LIBRARY_RESTORE_CI_PREPARED_INPUT_CONFLICT' -and $guidedCustomMedia -ceq 'HYPERV_LIBRARY_RESTORE_CI_PREPARED_INPUT_CONFLICT')
  'Workflow exposes the acceptance only through manual main dispatch with a clone source'=((Get-Content $workflow -Raw -Encoding utf8) -match '(?m)^\s*- sql-storage-reconcile-acceptance\s*$' -and (Get-Content $workflow -Raw -Encoding utf8) -match 'HYPERV_SQL_STORAGE_RECONCILE_CI_MANUAL_MAIN_REQUIRED' -and (Get-Content $workflow -Raw -Encoding utf8) -match 'HYPERV_SQL_STORAGE_RECONCILE_CI_CLONE_SOURCE_REQUIRED' -and (Get-Content $workflow -Raw -Encoding utf8) -match 'Invoke-HyperVSqlStorageReconcileAcceptance\.ps1 @arguments')
 }
 $failed=@($checks.GetEnumerator()|Where-Object{-not $_.Value});if($failed){throw "Hyper-V SQL storage reconcile acceptance checks failed: $($failed.Key -join ', ')"};Write-Host "Hyper-V SQL Storage Reconcile Acceptance Checks: $($checks.Count) PASS, 0 FAIL" -ForegroundColor Green

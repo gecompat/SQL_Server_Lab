@@ -5702,6 +5702,19 @@ eindeutig zu dieser Operation gehörende Run für Cleanup oder `KeepOnFailure`
 wiederaufgenommen. Die gemeinsame Offline-Fixture prüft erfolgreiche,
 fehlende und mehrdeutige Zuordnung sowie fehlende Ownership und bestehende Runs.
 
+### Native Abnahme für Hyper-V-Datenbankanlage und SQL-Skript
+
+Der manuelle Workflow-Modus **guided-database-script-acceptance** ist auf
+dem vertrauenswürdigen `main` verfügbar. Er benötigt ein explizit gewähltes,
+versiegeltes Windows-2025-/SQL-2025-Developer-Artefakt und ein vorhandenes
+Host-Only-Netz. Die Abnahme legt genau einen eigenen Lauf an. Sie prüft
+die geführte Datenbankanlage, führt ein synthetisches SQL-Skript mit
+Windows-Authentifizierung im gebundenen Gast aus und vergleicht Zeile,
+VM-Bindung und Skript-Hash mit dem Journal. Die bestehende Abnahme prüft
+anschließend die Entfernung des eigenen Laufs, der VM und ihrer Laufwerke.
+CLI-Menü und Browserbestätigung werden mit separaten Fixtures geprüft.
+Der native Lauf für diese beiden Aktionen steht noch aus.
+
 ### Ein-Datenbank-Containertransfer
 
 `Invoke-PortableContainerTransferExecutorRuntimeChecks.ps1` prüft offline den
