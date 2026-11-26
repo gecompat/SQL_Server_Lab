@@ -276,6 +276,7 @@ try {
         HasDatabaseMasterKey=$true;HasControlDatabase=$true;HasCreateExternalModel=$true;CredentialExists=$false;ExternalModelExists=$false;OwnershipTableExists=$false
     }
     $sqlRow=[Runtime.CompilerServices.StrongBox[object]]::new($validSqlRow.PSObject.Copy())
+    $sqlRow.Value.DatabaseGuid=$databaseGuid.ToUpperInvariant()
     $sqlCapture=[Runtime.CompilerServices.StrongBox[object]]::new()
     $sqlExecutor={param($query,$parameters,$database)$sqlCapture.Value=[PSCustomObject]@{Query=$query;Parameters=$parameters;Database=$database};$sqlRow.Value}.GetNewClosure()
     $preflight=& $module {param($p,$run,$executor,$identity)Invoke-LabAiExternalModelSqlPreflight -SqlPlan $p -RunId $run -SqlExecutor $executor -Binding ([PSCustomObject]@{}) -BindingIdentity $identity} $sqlPlan $runId $sqlExecutor $bindingIdentity

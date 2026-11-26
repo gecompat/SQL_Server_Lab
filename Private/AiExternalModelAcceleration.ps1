@@ -927,14 +927,15 @@ FROM sys.database_recovery_status WHERE database_id=DB_ID();
     if(-not [bool]$row.HasDatabaseMasterKey){throw 'AI_EXTERNAL_MODEL_SQL_MASTER_KEY_REQUIRED'}
     if(-not [bool]$row.HasControlDatabase -or -not [bool]$row.HasCreateExternalModel){throw 'AI_EXTERNAL_MODEL_SQL_PERMISSION_DENIED'}
     if([bool]$row.CredentialExists -or [bool]$row.ExternalModelExists -or [bool]$row.OwnershipTableExists){throw 'AI_EXTERNAL_MODEL_SQL_OBJECT_COLLISION'}
+    $databaseGuid=([string]$row.DatabaseGuid).ToLowerInvariant()
     $verifiedAt=[DateTime]::UtcNow.ToString('o',[Globalization.CultureInfo]::InvariantCulture)
-    $receiptIdentity=[ordered]@{Contract='SqlServerLab.AiExternalModelSqlPreflightBinding/1.0';SqlPlanKey=[string]$canonical.SqlPlanKey;BindingKey=$bindingKey;DatabaseGuid=[string]$row.DatabaseGuid;VerifiedAtUtc=$verifiedAt}
+    $receiptIdentity=[ordered]@{Contract='SqlServerLab.AiExternalModelSqlPreflightBinding/1.0';SqlPlanKey=[string]$canonical.SqlPlanKey;BindingKey=$bindingKey;DatabaseGuid=$databaseGuid;VerifiedAtUtc=$verifiedAt}
     [PSCustomObject][ordered]@{
         Contract=[PSCustomObject]@{Name='SqlServerLab.AiExternalModelSqlPreflightReceipt';Version='1.0'}
         Status='SQL_PREFLIGHT_VERIFIED';EvidenceStatus='LIVE_SQL_BOUND';SqlPlanKey=[string]$canonical.SqlPlanKey
         RunId=$RunId;ScopeId=[string]$BindingIdentity.ScopeId;InstanceId=$InstanceId;Provider=[string]$BindingIdentity.Provider
         VMId=if([string]$BindingIdentity.Provider -ceq 'hyperv'){[string]$BindingIdentity.VMId}else{$null}
-        BindingKey=$bindingKey;DatabaseName=[string]$canonical.DatabaseName;DatabaseGuid=[string]$row.DatabaseGuid
+        BindingKey=$bindingKey;DatabaseName=[string]$canonical.DatabaseName;DatabaseGuid=$databaseGuid
         SqlMajorVersion=17;VerifiedAtUtc=$verifiedAt;ReceiptKey=Get-LabAiPlanKey -InputObject $receiptIdentity
         VerifiedEvidence=@('SQL_2025_MATCH','DATABASE_ONLINE_READ_WRITE','DATABASE_MASTER_KEY_PRESENT','CONTROL_DATABASE_PERMISSION','CREATE_EXTERNAL_MODEL_PERMISSION','SQL_OBJECT_NAMES_AVAILABLE')
         PendingEvidence=@('SQL_EXTERNAL_MODEL_CREATED','SQL_EMBEDDING_VERIFIED','SQL_RESTART_VERIFIED','ACCELERATOR_RUNTIME_ATTESTATION','SQL_CLEANUP_VERIFIED')
@@ -1025,11 +1026,11 @@ DECLARE @ownerPlanKey varchar(64)=NULL,@ownerReceiptKey varchar(64)=NULL,@ownerB
 IF @ownerExists=1
 BEGIN
  DECLARE @read nvarchar(max)=N'SELECT @plan=SqlPlanKey,@receipt=PreflightReceiptKey,@binding=BindingKey,'+
-  N'@operation=CONVERT(varchar(36),OperationId),@guid=CONVERT(varchar(36),DatabaseGuid),@status=Status,@credentialId=CredentialId,@modelId=ExternalModelId FROM dbo.'+QUOTENAME(@ownerName)+N' WHERE Singleton=1;';
+  N'@operation=LOWER(CONVERT(varchar(36),OperationId)),@guid=LOWER(CONVERT(varchar(36),DatabaseGuid)),@status=Status,@credentialId=CredentialId,@modelId=ExternalModelId FROM dbo.'+QUOTENAME(@ownerName)+N' WHERE Singleton=1;';
  EXEC sys.sp_executesql @read,N'@plan varchar(64) OUTPUT,@receipt varchar(64) OUTPUT,@binding varchar(64) OUTPUT,@operation varchar(36) OUTPUT,@guid varchar(36) OUTPUT,@status varchar(16) OUTPUT,@credentialId int OUTPUT,@modelId int OUTPUT',
    @plan=@ownerPlanKey OUTPUT,@receipt=@ownerReceiptKey OUTPUT,@binding=@ownerBindingKey OUTPUT,@operation=@ownerOperationId OUTPUT,@guid=@ownerDatabaseGuid OUTPUT,@status=@ownerStatus OUTPUT,@credentialId=@ownerCredentialId OUTPUT,@modelId=@ownerExternalModelId OUTPUT;
 END;
-SELECT CONVERT(varchar(36),database_guid) AS DatabaseGuid,@ownerExists AS OwnershipTableExists,
+SELECT LOWER(CONVERT(varchar(36),database_guid)) AS DatabaseGuid,@ownerExists AS OwnershipTableExists,
  CONVERT(bit,CASE WHEN EXISTS(SELECT 1 FROM sys.database_scoped_credentials WHERE name=@credential) THEN 1 ELSE 0 END) AS CredentialExists,
  CONVERT(bit,CASE WHEN EXISTS(SELECT 1 FROM sys.external_models WHERE name=@model) THEN 1 ELSE 0 END) AS ExternalModelExists,
  (SELECT credential_id FROM sys.database_scoped_credentials WHERE name=@credential) AS CredentialId,
@@ -1168,7 +1169,7 @@ DECLARE @lockResult int;
 EXEC @lockResult=sys.sp_getapplock @Resource=@lockResource,@LockMode='Exclusive',@LockOwner='Transaction',@LockTimeout=0;
 IF @lockResult<0 THROW 51000,'AI_EXTERNAL_MODEL_SQL_APPLY_LOCKED',1;
 IF CONVERT(int,SERVERPROPERTY('ProductMajorVersion'))<>17 THROW 51000,'AI_EXTERNAL_MODEL_SQL_VERSION_UNSUPPORTED',1;
-IF NOT EXISTS(SELECT 1 FROM sys.database_recovery_status WHERE database_id=DB_ID() AND CONVERT(varchar(36),database_guid)=@databaseGuid) THROW 51000,'AI_EXTERNAL_MODEL_SQL_DATABASE_MISMATCH',1;
+IF NOT EXISTS(SELECT 1 FROM sys.database_recovery_status WHERE database_id=DB_ID() AND database_guid=TRY_CONVERT(uniqueidentifier,@databaseGuid)) THROW 51000,'AI_EXTERNAL_MODEL_SQL_DATABASE_MISMATCH',1;
 IF CONVERT(nvarchar(60),DATABASEPROPERTYEX(DB_NAME(),'Status'))<>N'ONLINE' OR CONVERT(nvarchar(60),DATABASEPROPERTYEX(DB_NAME(),'Updateability'))<>N'READ_WRITE' THROW 51000,'AI_EXTERNAL_MODEL_SQL_DATABASE_NOT_WRITABLE',1;
 IF NOT EXISTS(SELECT 1 FROM sys.symmetric_keys WHERE name=N'##MS_DatabaseMasterKey##') THROW 51000,'AI_EXTERNAL_MODEL_SQL_MASTER_KEY_REQUIRED',1;
 IF NOT EXISTS(SELECT 1 FROM sys.fn_my_permissions(NULL,'DATABASE') WHERE permission_name=N'CONTROL') OR NOT EXISTS(SELECT 1 FROM sys.fn_my_permissions(NULL,'DATABASE') WHERE permission_name=N'CREATE EXTERNAL MODEL') THROW 51000,'AI_EXTERNAL_MODEL_SQL_PERMISSION_REQUIRED',1;
@@ -1319,7 +1320,7 @@ BEGIN TRY
  EXEC @lockResult=sys.sp_getapplock @Resource=@lockResource,@LockMode='Shared',@LockOwner='Transaction',@LockTimeout=0;
  IF @lockResult<0 THROW 51000,'AI_EXTERNAL_MODEL_SQL_EMBEDDING_LOCKED',1;
  IF CONVERT(int,SERVERPROPERTY('ProductMajorVersion'))<>17 THROW 51000,'AI_EXTERNAL_MODEL_SQL_VERSION_UNSUPPORTED',1;
- IF NOT EXISTS(SELECT 1 FROM sys.database_recovery_status WHERE database_id=DB_ID() AND CONVERT(varchar(36),database_guid)=@databaseGuid) THROW 51000,'AI_EXTERNAL_MODEL_SQL_DATABASE_MISMATCH',1;
+ IF NOT EXISTS(SELECT 1 FROM sys.database_recovery_status WHERE database_id=DB_ID() AND database_guid=TRY_CONVERT(uniqueidentifier,@databaseGuid)) THROW 51000,'AI_EXTERNAL_MODEL_SQL_DATABASE_MISMATCH',1;
  IF OBJECT_ID(N'dbo.'+QUOTENAME(@ownerName),N'U') IS NULL THROW 51000,'AI_EXTERNAL_MODEL_SQL_EMBEDDING_OWNERSHIP_MISMATCH',1;
  DECLARE @owned bit=0,@sql nvarchar(max)=N'SELECT @match=CONVERT(bit,CASE WHEN EXISTS(SELECT 1 FROM dbo.'+QUOTENAME(@ownerName)+N' o JOIN sys.database_scoped_credentials c ON c.name=@credential AND c.credential_id=o.CredentialId JOIN sys.external_models m ON m.name=@model AND m.external_model_id=o.ExternalModelId AND m.credential_id=c.credential_id WHERE o.Singleton=1 AND o.SqlPlanKey=@plan AND o.PreflightReceiptKey=@receipt AND o.BindingKey=@binding AND o.OperationId=@operation AND o.DatabaseGuid=@guid AND o.Status=''APPLIED'') THEN 1 ELSE 0 END);';
  EXEC sys.sp_executesql @sql,N'@match bit OUTPUT,@credential sysname,@model sysname,@plan varchar(64),@receipt varchar(64),@binding varchar(64),@operation uniqueidentifier,@guid uniqueidentifier',@match=@owned OUTPUT,@credential=@credential,@model=@modelName,@plan=@planKey,@receipt=@preflightReceiptKey,@binding=@bindingKey,@operation=@operationId,@guid=@databaseGuid;
@@ -1442,7 +1443,7 @@ DECLARE @lockResult int;
 EXEC @lockResult=sys.sp_getapplock @Resource=@lockResource,@LockMode='Exclusive',@LockOwner='Transaction',@LockTimeout=0;
 IF @lockResult<0 THROW 51000,'AI_EXTERNAL_MODEL_SQL_CLEANUP_LOCKED',1;
 IF CONVERT(int,SERVERPROPERTY('ProductMajorVersion'))<>17 THROW 51000,'AI_EXTERNAL_MODEL_SQL_VERSION_UNSUPPORTED',1;
-IF NOT EXISTS(SELECT 1 FROM sys.database_recovery_status WHERE database_id=DB_ID() AND CONVERT(varchar(36),database_guid)=@databaseGuid) THROW 51000,'AI_EXTERNAL_MODEL_SQL_DATABASE_MISMATCH',1;
+IF NOT EXISTS(SELECT 1 FROM sys.database_recovery_status WHERE database_id=DB_ID() AND database_guid=TRY_CONVERT(uniqueidentifier,@databaseGuid)) THROW 51000,'AI_EXTERNAL_MODEL_SQL_DATABASE_MISMATCH',1;
 IF CONVERT(nvarchar(60),DATABASEPROPERTYEX(DB_NAME(),'Status'))<>N'ONLINE' OR CONVERT(nvarchar(60),DATABASEPROPERTYEX(DB_NAME(),'Updateability'))<>N'READ_WRITE' THROW 51000,'AI_EXTERNAL_MODEL_SQL_DATABASE_NOT_WRITABLE',1;
 IF NOT EXISTS(SELECT 1 FROM sys.fn_my_permissions(NULL,'DATABASE') WHERE permission_name=N'CONTROL') THROW 51000,'AI_EXTERNAL_MODEL_SQL_PERMISSION_REQUIRED',1;
 IF OBJECT_ID(N'dbo.'+QUOTENAME(@ownerName),N'U') IS NULL OR NOT EXISTS(SELECT 1 FROM sys.database_scoped_credentials WHERE name=@credential) OR NOT EXISTS(SELECT 1 FROM sys.external_models WHERE name=@modelName) THROW 51000,'AI_EXTERNAL_MODEL_SQL_CLEANUP_STATE_MISMATCH',1;
