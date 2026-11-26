@@ -5732,6 +5732,18 @@ anschließend die Entfernung des eigenen Laufs, der VM und ihrer Laufwerke.
 CLI-Menü und Browserbestätigung werden mit separaten Fixtures geprüft.
 Der native Lauf für diese beiden Aktionen steht noch aus.
 
+### Native Abnahme der SSIS-Katalogvoraussetzungen
+
+Der manuelle Main-Modus `guided-ssis-catalog-capability-acceptance`
+verwendet eine eigene SQL-2025-Developer-VM aus der expliziten
+Prepared-Vorlage. Eine separate SQL-Abfrage prüft, dass SSISDB fehlt.
+Die anschließende geführte Fachabfrage muss genau diese SQL-Version,
+`MISSING` für SSISDB und `BLOCKED` für die Fixturebereitschaft liefern.
+Die drei Run-Dateien bleiben bytegleich. Das bestehende Cleanup prüft
+die Abwesenheit der eigenen VM und ihrer Laufwerke. Dieser Modus prüft
+den nativen Fehlbestand. Eine SSISDB-Ausführung hat einen eigenen Nachweis.
+Der neue native Lauf steht aus.
+
 ### Ein-Datenbank-Containertransfer
 
 `Invoke-PortableContainerTransferExecutorRuntimeChecks.ps1` prüft offline den
