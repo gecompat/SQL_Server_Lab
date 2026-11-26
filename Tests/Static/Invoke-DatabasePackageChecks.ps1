@@ -258,6 +258,28 @@ try {
     $registryJson=$result.Package.Record|ConvertTo-Json -Depth 60
     $registrySecretScan=$registryJson -replace 'CREDENTIAL_OR_PROXY',''
     Add-CheckResult 'Package-Receipt enthält keine Quellpfade oder Credentials' ($registrySecretScan -notmatch [regex]::Escape($testRoot) -and $registrySecretScan -notmatch 'Password|Credential|SaPassword')
+    $acceptancePath=Join-Path $repoRoot 'Tests/Integration/Invoke-ContainerDatabasePackageExportAcceptance.ps1'
+    $acceptance=[Management.Automation.Language.Parser]::ParseFile($acceptancePath,[ref]$null,[ref]$null)
+    $nativeShim=$acceptance.Find({
+        param($node)
+        $node -is [Management.Automation.Language.FunctionDefinitionAst] -and $node.Name -ceq 'Invoke-LabProgressNativeCommand'
+    },$true)
+    $forwarded=& {
+        param($Definition)
+        . ([scriptblock]::Create($Definition.Extent.Text))
+        $password=[SecureString]::new()
+        $password.AppendChar([char]'x')
+        $originalNative={
+            [CmdletBinding()]
+            param([string]$FilePath,[string[]]$ArgumentList,[string]$Phase,[int]$TimeoutSeconds,$Progress,[SecureString]$SqlPassword)
+            [pscustomobject]@{Forwarded=[object]::ReferenceEquals($password,$SqlPassword);Phase=$Phase;File=$FilePath}
+        }
+        try {
+            Invoke-LabProgressNativeCommand -FilePath 'synthetic-sqlcmd' -ArgumentList @('-Q','SELECT 1') -Phase SqlQuery -SqlPassword $password
+        } finally { $password.Dispose() }
+    } $nativeShim
+    Add-CheckResult 'Native Paket-Fixture leitet das flüchtige SQL-Passwort außerhalb des Kopierfehlers unverändert weiter' (
+        $forwarded.Forwarded -and $forwarded.Phase -ceq 'SqlQuery' -and $forwarded.File -ceq 'synthetic-sqlcmd')
     $containerExporter=Get-Content -LiteralPath (Join-Path $repoRoot 'Private/ContainerDatabasePackage.ps1') -Raw
     Add-CheckResult 'Container-Dateiinventar normiert Systemmetadaten vor der Paketverkettung kollationsfest' (
         @([regex]::Matches($containerExporter,'COLLATE Latin1_General_100_BIN2')).Count -eq 3 -and
