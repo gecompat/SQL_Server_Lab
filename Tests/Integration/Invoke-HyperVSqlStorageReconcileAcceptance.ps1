@@ -26,10 +26,12 @@ param(
     [string]$OperationId=('local-hv-sql-storage-'+[guid]::NewGuid().ToString('N')),
     [switch]$KeepOnFailure,
     [switch]$VerifyLibraryRestore,
-    [Parameter(ParameterSetName='Prepared')][switch]$VerifyGuidedDatabaseScript
+    [Parameter(ParameterSetName='Prepared')][switch]$VerifyGuidedDatabaseScript,
+    [Parameter(ParameterSetName='Prepared')][switch]$VerifySsisCatalogCapability
 )
 $ErrorActionPreference='Stop'
-if ($PreparedArtifactId -and ($VerifyLibraryRestore.IsPresent -eq $VerifyGuidedDatabaseScript.IsPresent)) {
+$preparedScopes = @($VerifyLibraryRestore.IsPresent,$VerifyGuidedDatabaseScript.IsPresent,$VerifySsisCatalogCapability.IsPresent)
+if ($PreparedArtifactId -and @($preparedScopes | Where-Object {$_}).Count -ne 1) {
     throw 'HYPERV_LIBRARY_RESTORE_ACCEPTANCE_PREPARED_SCOPE_REQUIRED'
 }
 $repoRoot=(Resolve-Path (Join-Path $PSScriptRoot '..\..')).Path
@@ -108,6 +110,34 @@ function New-PreparedSqlStorageAcceptanceRun {
         } @($preparedPath,$guestPassword,$SqlPassword,$StateRoot,$OperationId)
     } finally {
         $guestPassword.Dispose()
+    }
+}
+
+function Invoke-GuidedSsisCatalogAcceptance {
+    param([Parameter(Mandatory)]$Context)
+
+    $runId = [string]$Context.Run.runId
+    $owned = Invoke-Private {param($Op,$Root) Get-LabOperationOwnedRun -OperationId $Op -StateRoot $Root} @($OperationId,$StateRoot)
+    if (-not $owned -or $owned.runId -cne $runId -or $owned.scopeId -cne $Context.Run.scopeId) {
+        throw 'HYPERV_SSIS_CATALOG_CAPABILITY_ACCEPTANCE_SCOPE_CHANGED'
+    }
+
+    try {
+        $files = @('run-state.json','connection-info.json','manifest.lock.json') |
+            ForEach-Object { Join-Path $Context.RunDirectory $_ }
+        $before = @(Get-FileHash -LiteralPath $files -Algorithm SHA256 | Select-Object -ExpandProperty Hash)
+        $baseline = @(Invoke-SqlRows $Context 'SELECT CONVERT(int, CASE WHEN DB_ID(N''SSISDB'') IS NULL THEN 0 ELSE 1 END) AS CatalogPresent;')
+        Assert-HyperVSqlStorageAcceptance ($baseline.Count -eq 1 -and $baseline[0].CatalogPresent -ceq '0') 'Own prepared SQL fixture has no SSISDB'
+
+        $json = @{RunId=$runId;InstanceId='primary'} | ConvertTo-Json -Compress
+        $view = Invoke-Private {param($Payload) Invoke-LabSsisCatalogCapabilityBrowser -Json $Payload} @($json)
+        Assert-HyperVSqlStorageAcceptance ($view.Status -ceq 'BLOCKED' -and $view.Reason -ceq 'NONE' -and
+            $view.Sql -ceq 'SQL_2025_OBSERVED' -and $view.Catalog -ceq 'MISSING' -and
+            @($view.PSObject.Properties.Name).Count -eq 5) 'Guided SSIS catalog probe confirms SQL 2025 and the missing SSISDB'
+        $after = @(Get-FileHash -LiteralPath $files -Algorithm SHA256 | Select-Object -ExpandProperty Hash)
+        Assert-HyperVSqlStorageAcceptance ($before.Count -eq 3 -and ($before -join ',') -ceq ($after -join ',')) 'SSIS catalog observation leaves owned run artifacts unchanged'
+    } catch {
+        throw 'HYPERV_SSIS_CATALOG_CAPABILITY_ACCEPTANCE_UNCONFIRMED'
     }
 }
 
@@ -270,7 +300,9 @@ try {
         } @($context.RunDirectory)
         try {
             $guestCredential = [PSCredential]::new('Administrator',$guestPassword)
-            if ($VerifyGuidedDatabaseScript) {
+            if ($VerifySsisCatalogCapability) {
+                Invoke-GuidedSsisCatalogAcceptance -Context $context
+            } elseif ($VerifyGuidedDatabaseScript) {
                 Invoke-GuidedDatabaseScriptAcceptance -Context $context -GuestCredential $guestCredential
             } else {
                 Invoke-StorageLibraryRestoreAcceptance -Context $context -GuestCredential $guestCredential -ExpectedVmId $managed.VM.Id -ExpectedStoragePlanId $storage.Receipt.PlanId

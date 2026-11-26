@@ -133,6 +133,15 @@ Datenbank und die gewählte Windows-Authentifizierung. Der Fachbefehl
 bindet die VM erneut und verwendet den geschützten lokalen Gastzugang.
 Ein unbestätigtes SQL-Ergebnis führt zu einem fehlgeschlagenen Browserauftrag.
 
+### SSIS-Katalogvoraussetzungen
+
+`POST /api/ssis-catalog-capability` verwendet den bestehenden direkten
+SSIS-Reader mit Origin-Prüfung, JSON-Inhaltstyp und 1.024 Zeichen
+Größenlimit. Die Anfrage besteht exakt aus Run-ID und registrierter
+Instanz-ID. Der gemeinsame Probe-Kern validiert die aktuelle VM- und
+SQL-Bindung. Die Antwort enthält fünf Statusfelder für Ergebnis, Grund,
+SQL-Version, Komponenten und Katalog.
+
 ## Acht interne Fachreader
 
 CMS-Inspection, Initial Setup, Slotreserve, Resource Watch, llama.cpp-Installer,

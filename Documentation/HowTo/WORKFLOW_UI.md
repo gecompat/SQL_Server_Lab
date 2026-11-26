@@ -1196,6 +1196,15 @@ Volltextindizes sperren diesen Schritt. Eine tatsächliche Änderung startet
 SQL Server neu. Unter Hyper-V müssen passende, verifizierte SQL-Medien im
 konfigurierten Media Root verfügbar sein.
 
+### SSIS-Katalogvoraussetzungen prüfen
+
+Öffne **Lab verwalten** und wähle an einer laufenden eigenen
+Hyper-V-SQL-Umgebung **SSIS-Katalogvoraussetzungen prüfen**. Der Dialog
+zeigt die registrierte Instanz. **Voraussetzungen lesen** meldet die
+beobachtete SQL-Version, die SSIS-Komponenten und den Status von SSISDB.
+Die Prüfung unterstützt SQL Server 2019, 2022 und 2025. Die Ausführung
+eines SSIS-Pakets hat eine eigene Abnahme.
+
 ### SMTP-Testdienst prüfen
 
 Öffne **Lab-Umgebungen → SMTP-Testdienst prüfen** und wähle ein

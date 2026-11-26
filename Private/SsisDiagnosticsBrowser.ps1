@@ -90,3 +90,13 @@ function Invoke-LabSsisPackageDiagnosticBrowser {
         EventCodes = @($result.Observation.Events | Where-Object { $null -ne $_ } | ForEach-Object { $_.Code })
     }
 }
+
+function Invoke-LabSsisCatalogCapabilityBrowser {
+    param([Parameter(Mandatory)][string]$Json)
+
+    $values = Read-LabSsisDiagnosticBrowserFields -Json $Json -Fields @('RunId','InstanceId')
+    $runId = Assert-LabSsisDiagnosticGuid $values['RunId']
+    $instanceId = Assert-LabSsisDiagnosticInstanceId $values['InstanceId']
+    $result = Get-SqlServerLabSsisCatalogCapability -RunId $runId -InstanceId $instanceId -ErrorAction Stop
+    ConvertTo-LabSsisCatalogCapabilitySummary -Result $result -RunId $runId -InstanceId $instanceId
+}

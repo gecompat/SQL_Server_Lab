@@ -20,10 +20,28 @@ function element(id) {
   return elements.get(id);
 }
 let calls = 0;
+let capabilityCalls = 0;
+let capabilityClick;
+const browserWindow = {};
+let capabilityView = {
+  Status: 'READY_FOR_FIXTURE_IMPLEMENTATION', Reason: 'NONE', Sql: 'SQL_2025_OBSERVED',
+  Components: 'OBSERVED', Catalog: 'ONLINE_CATALOG_OBSERVED',
+};
 let result = Promise.resolve({ Status: 'OBSERVED', Reason: 'NONE', ExecutionStatus: 7, Worker: 'NOT_REPORTED', ErrorCodes: [] });
 vm.runInNewContext(source, {
-  document: { getElementById: element },
+  window: browserWindow,
+  document: { getElementById: element, addEventListener: (name, callback) => {
+    assert.equal(name, 'click');
+    capabilityClick = callback;
+  } },
+  escapeHtml: value => value.replaceAll('"','&quot;').replaceAll('<','&lt;'),
   async sqlServerLabUiFetch(url, options) {
+    if (url === '/api/ssis-catalog-capability') {
+      assert.equal(options.method, 'POST');
+      assert.deepEqual(JSON.parse(options.body), { RunId: inputs.RunId, InstanceId: 'primary' });
+      capabilityCalls++;
+      return { ok: true, json: async () => capabilityView };
+    }
     assert.equal(url, '/api/ssis-execution-diagnostic');
     assert.equal(options.method, 'POST');
     assert.deepEqual(JSON.parse(options.body), inputs);
@@ -56,6 +74,28 @@ vm.runInNewContext(source, {
   await form.submit(event);
   assert.match(status.textContent, /fehlgeschlagen/);
   assert.doesNotMatch(status.textContent, /PRIVATE_CANARY/);
+  const render = browserWindow.sqlServerLabSsisCapability.renderAction;
+  const item = { RunId: inputs.RunId, InstanceId: 'primary', SqlVersion: 2025, Name: '<fixture"' };
+  assert.equal(render(item, false), '');
+  assert.equal(render({ ...item, InstanceId: '" private' }, true), '');
+  assert.match(render(item, true), /&lt;fixture&quot;/);
+  capabilityClick({ target: { closest: () => ({ dataset: { run: item.RunId, instance: 'primary', labName: item.Name } }) } });
+  assert.equal(capabilityCalls, 0);
+  assert.equal(element('ssis-capability-target').textContent, '<fixture" / primary');
+  const capabilityForm = element('ssis-capability-form');
+  const capabilityStatus = element('ssis-capability-status');
+  const readPending = capabilityForm.submit(event);
+  await capabilityForm.submit(event);
+  await readPending;
+  assert.equal(capabilityCalls, 1);
+  assert.match(capabilityStatus.textContent, /SSISDB-Katalog online/);
+  capabilityView = { ...capabilityView, Reason: 'PRIVATE_CANARY' };
+  await capabilityForm.submit(event);
+  assert.match(capabilityStatus.textContent, /konnten nicht gelesen werden/);
+  assert.doesNotMatch(capabilityStatus.textContent, /PRIVATE_CANARY/);
+  element('ssis-capability-dialog').closeDialog();
+  await capabilityForm.submit(event);
+  assert.equal(capabilityCalls, 2);
   const trusted = { checked: false };
   const packageElements = new Map();
   const packageValues = { RunId: inputs.RunId, InstanceId: 'primary', PackagePath: '/private/secret-name.dtsx',
