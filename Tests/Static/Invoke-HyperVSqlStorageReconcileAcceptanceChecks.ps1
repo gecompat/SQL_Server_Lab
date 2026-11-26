@@ -1,7 +1,7 @@
 #Requires -Version 7.2
 [CmdletBinding()]param()
 $ErrorActionPreference='Stop';$repoRoot=(Resolve-Path (Join-Path $PSScriptRoot '..\..')).Path
-$path=Join-Path $repoRoot 'Tests/Integration/Invoke-HyperVSqlStorageReconcileAcceptance.ps1';$workflow=Join-Path $repoRoot '.github/workflows/runtime-smoke-hyperv.yml';$source=Get-Content $path -Raw -Encoding utf8;$errors=$null;$null=[Management.Automation.Language.Parser]::ParseFile($path,[ref]$null,[ref]$errors)
+$path=Join-Path $repoRoot 'Tests/Integration/Invoke-HyperVSqlStorageReconcileAcceptance.ps1';$workflow=Join-Path $repoRoot '.github/workflows/runtime-smoke-hyperv.yml';$source=Get-Content $path -Raw -Encoding utf8;$errors=$null;$runnerAst=[Management.Automation.Language.Parser]::ParseFile($path,[ref]$null,[ref]$errors)
 # Execute only the runner's pure comparison block; never bootstrap Hyper-V here.
 $comparisonStart=$source.IndexOf('    $expected=@($receiptAfter.FileBindings)')
 $comparisonEnd=$source.IndexOf('    $resultOk=', $comparisonStart)
@@ -74,7 +74,30 @@ $preparedManifest = & {
     & $prepareManifest
 }
 $preparedInstance = $preparedManifest.instances[0]
+$libraryLocator = $runnerAst.Find({ param($node)
+    $node -is [Management.Automation.Language.FunctionDefinitionAst] -and $node.Name -ceq 'Get-LabBackupLibraryPaths'
+}, $true)
+if (-not $libraryLocator) { throw 'Scoped fixture library locator not found' }
+$testModule = New-Module -ScriptBlock {
+    function Resolve-LabDataRootForUse { param([string]$DataRoot) "resolved-$DataRoot" }
+    function Get-LabBackupLibraryPaths { 'original-locator' }
+    function Read-ScopedBackupPaths { param([string]$DataRoot) Get-LabBackupLibraryPaths -DataRoot $DataRoot }
+}
+$libraryScope = & $testModule {
+    param([scriptblock]$Locator)
+    $registeredDataRoot = 'resolved-current'
+    $libraryRoot = Join-Path ([IO.Path]::GetTempPath()) 'synthetic-restore-library'
+    . $Locator
+    $paths = Read-ScopedBackupPaths -DataRoot current
+    $rejected = try { $null = Read-ScopedBackupPaths -DataRoot another; $false }
+        catch { $_.Exception.Message -ceq 'HYPERV_LIBRARY_RESTORE_ACCEPTANCE_LIBRARY_SCOPE_INVALID' }
+    $rejected -and $paths.DataRoot -ceq $registeredDataRoot -and $paths.LibraryRoot -ceq $libraryRoot -and
+        $paths.RegistryPath -ceq (Join-Path $libraryRoot 'backup-library.json') -and
+        $paths.ObjectsRoot -ceq (Join-Path $libraryRoot 'Objects')
+} ([scriptblock]::Create($libraryLocator.Extent.Text))
+$locatorRestored = (& $testModule { Read-ScopedBackupPaths -DataRoot current }) -ceq 'original-locator'
 $checks=[ordered]@{
+ 'Fixture uses only the private backup path while preserving registered-root validation and the original locator'=($libraryScope -and $locatorRestored -and $source -notmatch 'SQL_SERVER_LAB_DATA_ROOT')
  'Prepared manifest preserves backup storage intent and binds only the approved artifact and network'=($preparedInstance.storageIntent.roles.backup.selector -ceq 'default' -and
     $preparedInstance.storageIntent.placementPolicy -ceq 'logical-only' -and $preparedInstance.hyperv.preparedImageId -ceq $artifact -and
     $preparedInstance.hyperv.switchName -ceq 'synthetic-switch' -and $preparedInstance.windowsActivation.Strategy -ceq 'NotRequested' -and
