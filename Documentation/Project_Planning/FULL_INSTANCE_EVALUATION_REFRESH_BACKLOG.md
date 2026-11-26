@@ -58,14 +58,18 @@ Die geführte CLI bietet bei **Instanzzustand migrieren** zusätzlich
 liest denselben begrenzten Start der Inventur auf einer gebundenen
 SQL-2025-Prepared-Instanz. Er zählt Benutzer-Datenbanken mit Teilmengen für
 Zustand und Verschlüsselung, Snapshots, FILESTREAM-Dateityp, den
-SSISDB-Katalogkandidaten, Serverprinzipale, Credentials, Linked Server,
-Agent-Jobs und Proxies. Werte erscheinen nur aggregiert,
+SSISDB-Katalogkandidaten, Serverprinzipale, Serverrollenmitgliedschaften,
+explizite Serverberechtigungseinträge, Credentials, Linked Server,
+Agent-Jobs, Zeitpläne und Proxies. Werte erscheinen nur aggregiert,
 ohne SQL-Objektnamen oder Zugangsdaten. Bei fehlendem Live-Nachweis bleiben
 die Werte unbeobachtet. Im Browser löst dieselbe getrennte Aktion einen
 flüchtigen Leseauftrag mit gebundener Auswahl aus. Positive Zähler erzeugen
 feste Prüfhinweise für Datenbankzustand, TDE-Schlüssel, Snapshots, FILESTREAM-
 Dateityp, mögliche SSISDB, Zugangsdaten, Linked Server, SQL-Agent-Jobs und
--Proxies. Die SSISDB-Namensübereinstimmung erfordert eine Katalogprüfung.
+-Proxies. Positive Rollen-, Berechtigungs- und Zeitplanzähler markieren
+ebenfalls weiteren Inventurbedarf. Die Zähler erfassen Katalogzeilen
+einschließlich vorhandener Systemeinträge. Die SSISDB-Namensübereinstimmung
+erfordert eine Katalogprüfung.
 Ein Nullwert beschreibt
 die beobachtete Kategorie zum Prüfzeitpunkt. Die SQL-Quellabfrage zeigt auch die aggregierten, im SQL-Katalog
 zugewiesenen Seiten der regulären Benutzer-Daten- und Logdateien in Bytes.

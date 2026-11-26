@@ -276,7 +276,8 @@ try {
     $script:guestCounts = [pscustomobject]@{
         UserDatabases=[long]3; NonOnlineUserDatabases=[long]1; EncryptedUserDatabases=[long]0; DatabaseSnapshots=[long]0
         FilestreamFileDatabases=[long]0; SsisCatalogCandidateDatabases=[long]0
-        ServerPrincipals=[long]10; Credentials=[long]0; LinkedServers=[long]1; AgentJobs=[long]3; AgentProxies=[long]0
+        ServerPrincipals=[long]10; ServerRoleMemberships=[long]0; ExplicitServerPermissions=[long]0
+        Credentials=[long]0; LinkedServers=[long]1; AgentJobs=[long]3; AgentSchedules=[long]0; AgentProxies=[long]0
     }
     function Get-LabSqlGuestCaptureContext {
         param($RunId,$StateRoot)
@@ -408,7 +409,7 @@ try {
             $observed.SqlSourceInventory.AllocatedFileStorage.Status -ceq 'OBSERVED' -and
             $observed.SqlSourceInventory.AllocatedFileStorage.DataBytes -eq 1MB -and
             $observed.SqlSourceInventory.AllocatedFileStorage.LogBytes -eq 256KB -and
-            $observed.SqlSourceInventory.Items.Count -eq 11 -and ($observed.SqlSourceInventory.Items | Where-Object Category -CEQ UserDatabases).Count -eq 3 -and
+            $observed.SqlSourceInventory.Items.Count -eq 14 -and ($observed.SqlSourceInventory.Items | Where-Object Category -CEQ UserDatabases).Count -eq 3 -and
             ($observed.SqlSourceInventory.DependencyFindings.Code -join ',') -ceq
                 'DATABASE_STATE_REVIEW_REQUIRED,LINKED_SERVER_REBIND_REQUIRED,SQL_AGENT_JOB_INVENTORY_REQUIRED' -and
             $observed.Status -ceq 'BLOCKED' -and 'FULL_INSTANCE_INVENTORY_NOT_AVAILABLE' -cin $observed.Blockers -and -not $observed.MutationAllowed -and
@@ -479,18 +480,28 @@ try {
         $script:guestCounts.FilestreamFileDatabases = [long]2
         $script:guestCounts.SsisCatalogCandidateDatabases = [long]1
         $script:guestCounts.Credentials = [long]2
+        $script:guestCounts.ServerRoleMemberships = [long]4
+        $script:guestCounts.ExplicitServerPermissions = [long]6
+        $script:guestCounts.AgentSchedules = [long]2
         $script:guestCounts.AgentProxies = [long]1
         $blocked = Get-SqlServerLabEvaluationRefreshPlan @argsForPlan -ObserveSqlSource
-        Assert-Refresh ($blocked.SqlSourceInventory.DependencyFindings.Count -eq 9 -and
+        Assert-Refresh ($blocked.SqlSourceInventory.DependencyFindings.Count -eq 12 -and
             'TDE_KEY_TRANSFER_REQUIRED' -cin $blocked.SqlSourceInventory.DependencyFindings.Code -and
             'DATABASE_SNAPSHOT_DISPOSITION_REQUIRED' -cin $blocked.SqlSourceInventory.DependencyFindings.Code -and
             'CREDENTIAL_REBIND_REQUIRED' -cin $blocked.SqlSourceInventory.DependencyFindings.Code -and
+            'SERVER_ROLE_MEMBERSHIP_INVENTORY_REQUIRED' -cin $blocked.SqlSourceInventory.DependencyFindings.Code -and
+            'SERVER_PERMISSION_INVENTORY_REQUIRED' -cin $blocked.SqlSourceInventory.DependencyFindings.Code -and
+            'SQL_AGENT_SCHEDULE_INVENTORY_REQUIRED' -cin $blocked.SqlSourceInventory.DependencyFindings.Code -and
             'SQL_AGENT_PROXY_REBIND_REQUIRED' -cin $blocked.SqlSourceInventory.DependencyFindings.Code -and
             $blocked.TransferAuthority -ceq 'NONE') 'Observed dependencies get actionable fixed codes without transfer authority'
         $filestream = $blocked.SqlSourceInventory.DependencyFindings | Where-Object Category -CEQ 'FilestreamFileDatabases'
         $ssis = $blocked.SqlSourceInventory.DependencyFindings | Where-Object Category -CEQ 'SsisCatalogCandidateDatabases'
         Assert-Refresh ($filestream.Count -eq 2 -and $filestream.Code -ceq 'FILESTREAM_STORAGE_REVIEW_REQUIRED' -and
             $ssis.Count -eq 1 -and $ssis.Code -ceq 'SSIS_CATALOG_REVIEW_REQUIRED' -and $blocked.Status -ceq 'BLOCKED') 'Database feature candidates produce bounded review findings'
+        $serverFindings = @($blocked.SqlSourceInventory.DependencyFindings | Where-Object Category -CIn @(
+            'ServerRoleMemberships','ExplicitServerPermissions','AgentSchedules'))
+        Assert-Refresh (($serverFindings.Count -eq 3) -and (($serverFindings | ForEach-Object { "$($_.Category):$($_.Count)" }) -join ',') -ceq
+            'ServerRoleMemberships:4,ExplicitServerPermissions:6,AgentSchedules:2') 'Instance inventory keeps role membership, explicit permission and Agent schedule counts distinct'
         foreach ($property in $script:guestCounts.PSObject.Properties) { $property.Value = [long]0 }
         $script:guestFilePages = [pscustomobject]@{DataPages=[long]0;LogPages=[long]0}
         $empty = Get-SqlServerLabEvaluationRefreshPlan @argsForPlan -ObserveSqlSource

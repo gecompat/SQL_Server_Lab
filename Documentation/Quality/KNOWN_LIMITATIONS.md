@@ -696,9 +696,12 @@ Das [erweiterte native Gastinventar](https://github.com/gecompat/SQL_Server_Lab/
 auf demselben Prepared-Artifact. FILESTREAM-Dateityp und SSISDB-Kandidat
 markieren Prüfbedarf für Datenbankdateien beziehungsweise einen möglichen
 SSIS-Katalog. Die Quellbeobachtung unterscheidet
-einen fehlenden Befund von tatsächlich beobachteten
-Nullwerten und leitet aus positiven Zählern feste Prüfhinweise zu
-Übernahmeabhängigkeiten ab. Die optionale Zielvorschau prüft die getrennte
+einen fehlenden Befund von tatsächlich beobachteten Nullwerten und leitet
+aus positiven Zählern feste Prüfhinweise zu Übernahmeabhängigkeiten ab.
+Rollenmitgliedschaften, explizite Serverberechtigungseinträge
+und Agent-Zeitpläne erscheinen als separate Katalogzähler. Wirksame
+Serverberechtigungen und die Zuordnung von Zeitplänen zu einzelnen Jobs
+erfordern eine eigene Inventur. Die optionale Zielvorschau prüft die getrennte
 registrierte Bindung eines SQL-2025-Ziellabs. Für ein laufendes Ziel lassen
 sich Windows-Lizenz und SQL-Bereitschaft getrennt prüfen. Die SQL-Abfrage
 beobachtet die erwartete Instanz im gebundenen SQL-2025-Prepared-Gast und

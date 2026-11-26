@@ -66,7 +66,8 @@ try {
     } $context
     $counters=@($inventory.SourceInventory.PSObject.Properties)
     $expectedCounters=@('UserDatabases','NonOnlineUserDatabases','EncryptedUserDatabases','DatabaseSnapshots','FilestreamFileDatabases',
-        'SsisCatalogCandidateDatabases','ServerPrincipals','Credentials','LinkedServers','AgentJobs','AgentProxies')
+        'SsisCatalogCandidateDatabases','ServerPrincipals','ServerRoleMemberships','ExplicitServerPermissions',
+        'Credentials','LinkedServers','AgentJobs','AgentSchedules','AgentProxies')
     Assert-CaptureAcceptance ($inventory.MajorVersion -eq 17 -and $counters.Count -eq $expectedCounters.Count -and
         @($counters | Where-Object { $_.Name -cnotin $expectedCounters }).Count -eq 0 -and
         @($counters | Where-Object { $_.Value -isnot [long] -or $_.Value -lt 0 }).Count -eq 0 -and

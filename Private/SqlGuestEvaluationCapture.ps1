@@ -134,9 +134,12 @@ SELECT
     (SELECT COUNT_BIG(*) FROM sys.databases WHERE database_id = DB_ID(N'SSISDB') AND database_id > 4
         AND source_database_id IS NULL) AS SsisCatalogCandidateDatabases,
     (SELECT COUNT_BIG(*) FROM sys.server_principals WHERE type IN ('S','U','G','E','X','C','K')) AS ServerPrincipals,
+    (SELECT COUNT_BIG(*) FROM sys.server_role_members) AS ServerRoleMemberships,
+    (SELECT COUNT_BIG(*) FROM sys.server_permissions) AS ExplicitServerPermissions,
     (SELECT COUNT_BIG(*) FROM sys.credentials) AS Credentials,
     (SELECT COUNT_BIG(*) FROM sys.servers WHERE is_linked = 1) AS LinkedServers,
     (SELECT COUNT_BIG(*) FROM msdb.dbo.sysjobs) AS AgentJobs,
+    (SELECT COUNT_BIG(*) FROM msdb.dbo.sysschedules) AS AgentSchedules,
     (SELECT COUNT_BIG(*) FROM msdb.dbo.sysproxies) AS AgentProxies,
     totals.DataPages, totals.LogPages
 FROM FileTotals AS totals;
