@@ -679,8 +679,12 @@ mit dem freien Platz der Daten- und Log-Standardvolumes eines separaten
 laufenden SQL-2025-Prepared-Labs. Die zwei Lesungen bilden keinen atomaren
 Gast-Snapshot. Die Vorschau erteilt keine Aussage zu Backupplatz, Wachstum,
 Hostkapazität, alternativen Zielpfaden oder Wiederherstellbarkeit. Der
-kombinierte Bedien- und Prüfschritt ist synthetisch validiert. Die
-beiden Einzelbeobachtungen haben getrennte native Nachweise.
+kombinierte Bedienpfad ist synthetisch validiert. Der native Key18-Lauf
+prüfte beide Gastbeobachtungen gleichzeitig und bestätigte die exakten
+Daten- und Logdateigrößen der eigenen Testdatenbank, die Berechnung je
+Zielvolume und die vollständige Bereinigung beider Testumgebungen.
+Der Gesamtplan bleibt `BLOCKED` mit `TransferAuthority=NONE`.
+[Key18-Lauf 45742408943](https://github.com/gecompat/SQL_Server_Lab/actions/runs/45742408943)
 Die Gastprobe mit den ursprünglichen neun Zählern bestand für SQL Server 2025 Developer auf Hyper-V im
 [Lauf 45343380820](https://github.com/gecompat/SQL_Server_Lab/actions/runs/45343380820).
 Das [erweiterte native Gastinventar](https://github.com/gecompat/SQL_Server_Lab/actions/runs/45418884558) bestätigte elf Zähler
@@ -2187,6 +2191,14 @@ den Inhalt erneut.
 Ein HTTP(S)-Restore ohne `restore.sha256` kann im interaktiven Trust-Pfad
 verwendet werden, beendet einen unbeaufsichtigten Manifestlauf jedoch mit
 `TRUST_REQUIRED`.
+
+Der geführte Hyper-V-Restore im Browser setzt einen verifizierten
+Storage-Vertrag, eine überprüfbare Gast-IP sowie den SQL-TCP-Port im
+gebundenen laufenden Gast voraus. Er stellt Bibliotheksbackups in eine neue
+Datenbank wieder her. Ein Wiederherstellungsergebnis kann einen separaten
+Bereinigungsbedarf ausweisen, wenn die temporäre Gastkopie noch vorhanden
+ist oder ihre Entfernung unbestätigt bleibt. Dieser Schritt ersetzt keine
+Instanzmigration.
 
 ## Automatisierte Manifeste und Vorlagenpool
 

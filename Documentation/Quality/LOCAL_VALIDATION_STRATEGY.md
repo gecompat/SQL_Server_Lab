@@ -2138,6 +2138,31 @@ Die [bekannten Grenzen](KNOWN_LIMITATIONS.md#container-autostart-nur-vorprüfen)
 bleiben maßgeblich für nicht geprüfte oder nicht ausführbare Fähigkeiten.
 
 
+## Geführter Hyper-V-Bibliotheksrestore
+
+Die Backup-Library-Suite prüft synthetisch die Hyper-V-Zielbindung,
+Gast-IP, den beobachteten SQL-Port, den Backup-Kompatibilitätscheck und
+vorhandene Zieldatenbanken. Der Browser-Fixture prüft Auswahl und
+Bestätigung sowie das Leeren beider Passwortfelder. Die SQL-Progress-
+Suite prüft den prozessgebundenen Passworttransport mit einem echten
+Kindprozess und synthetischem Passwort. Unter Windows wurden zusätzlich
+der installierte ODBC-sqlcmd und ein eigener Loopback-Listener mit
+SQL-Argument und erzeugter SQL-Datei geprüft. Das bestätigt den
+Verbindungsaufbau ohne Passwortprompt oder Passwortausgabe. Ein echter
+Hyper-V-Restore über den gerenderten Browser ist damit nicht nachgewiesen.
+Der vorbereitete manuelle Main-Modus `sql-storage-library-restore-acceptance`
+nutzt ein bereits vorhandenes Host-Only-Netz. Als Quelle verwendet er
+entweder den operationseigenen Clone aus einem ausdrücklich ausgewählten
+Windows-Slot mit registriertem SQL-Medium oder ein ausdrücklich ausgewähltes,
+verifiziertes SQL-2025-Developer-Prepared-Artifact. Der Prepared-Pfad
+erstellt einen eigenen SQL-Run, lässt die Windows-Aktivierung unverändert
+und benötigt keine Zugangsdaten oder Datenträger eines vorhandenen Slots.
+Der Workflow weist gemischte Eingaben vor dem Arrange ab. Er legt eine
+synthetische Datenbank an, sichert sie in einer isolierten temporären
+Backup-Bibliothek und prüft anschließend den tatsächlichen Worker-Einstieg,
+die identischen Zielinhalte und die Kopienbereinigung. Der native Lauf
+dieses Modus steht aus.
+
 ## Getrennte AutoStart-Browservorschau
 
 Der additive Testmodus `Invoke-ContainerAutoStartPreviewAcceptance.ps1 -BrowserOnly`
@@ -2484,6 +2509,20 @@ separaten Ziel-VM, bytegleiche Quell- und Zielmetadaten, die unveränderte
 Prepared-Vorlage und den vollständigen Cleanup beider eigener Runs samt
 VMs und Disks. Für SQL-Readiness und Transfer stehen eigene Nachweise aus.
 [Nativer Key18-Lauf](https://github.com/gecompat/SQL_Server_Lab/actions/runs/45463261705)
+
+### Nativer kombinierter Vergleich von Dateizuweisung und Zielspeicher
+
+Auf `6979d649440de9bc5dabd7cce44b81764a5a1a8d` bestand der
+[Key18-Lauf 45742408943](https://github.com/gecompat/SQL_Server_Lab/actions/runs/45742408943)
+den manuellen Modus `evaluation-target-file-allocation-acceptance`.
+Die gebundene SQL-Quelle war nach dem erneuten Start erreichbar. Eine
+synthetische Datenbank erhöhte die Quellsummen exakt um ihre Daten- und
+Logdateigrößen. Die Zielseite übernahm die gemessenen freien Bytes je
+Volume, gemeinsam genutzte Volumes genau einmal. Beide VMs liefen
+gleichzeitig. Der Lauf bestätigte unveränderte Vorlage, Run- und
+Verbindungsmetadaten sowie `REMOVED` für beide eigenen Runs samt VMs
+und Disks. Backupbedarf, Übernahme und Gleichwertigkeit liegen außerhalb
+dieses Nachweises.
 
 ## Prospektiver External-Languages-Capability-Entscheid
 
@@ -4085,6 +4124,10 @@ bleiben unter der bestehenden Providerverwaltung; der Test fuehrt kein Prune aus
 `Tests/Static/Invoke-SqlActionProgressChecks.ps1` prüft unveränderte
 synthetische Passwortwerte einschließlich Minus, Leerzeichen, Anführungszeichen,
 Backslash und Unicode über Query, Readiness und KeepConnection.
+Die Bibliothekssicherung übergibt das Kennwort für Metadaten,
+Abhängigkeitsinventur und Backup per Prozessumgebung an sqlcmd. Die
+betroffenen Argument- und Workflowprüfungen prüfen, dass der SecureString
+auf diesem Weg erhalten bleibt und kein Kennwort in den Argumenten steht.
 `Invoke-ReadinessContractChecks.ps1` bindet beide Provider-Healthchecks und
 den gemeinsamen Container-Reconcile an denselben Shellargumentvertrag.
 `Tests/Integration/Invoke-SqlcmdPasswordParserAcceptance.ps1` reproduziert

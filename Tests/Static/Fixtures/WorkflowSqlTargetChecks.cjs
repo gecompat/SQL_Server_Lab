@@ -410,6 +410,68 @@ async function main() {
     assert.equal(node('container-operation-dialog').open, false);
     assert.equal(context.queued.length, 2);
   });
+  const restoreRun = '43434343-2222-4333-8444-555555555555';
+  const restoreBackup = '51515151-2222-4333-8444-555555555555';
+  const restoreVm = { ...fixture.HyperVLabs[0], RunId:restoreRun, InstanceId:'primary',
+    VMName:'FixtureVm', SqlVersion:'2025', State:'RUNNING', VMState:'Running', Workload:'sql', SqlCompletionState:'COMPLETE' };
+  const restoreInventory = { ...fixture, HyperVLabs:[restoreVm], BackupLibrary:[
+    {BackupSetId:restoreBackup,DatabaseName:'Synthetic',SourceProvider:'docker',SourceSqlMajorVersion:17,Availability:'SELECTABLE'},
+    {BackupSetId:'blocked',DatabaseName:'Blocked',SourceProvider:'docker',SourceSqlMajorVersion:17,Availability:'QUARANTINED'}
+  ] };
+  const restoreForm = node('hyperv-library-restore-form');
+  const restoreField = name => node('hyperv-library-restore-' + name);
+  restoreForm.reportValidity = () => true;
+  restoreForm.reset = () => {
+    for (const name of ['backup','database','guest-password','sa-password']) restoreField(name).value = '';
+    restoreField('user').value = 'Administrator';
+    restoreField('confirm').checked = false;
+  };
+  context.restoreDispatches = [];
+  run('const originalRestoreSubmit = submitUiAction; submitUiAction = (action,url,payload) => { restoreDispatches.push({action,url,payload}); return Promise.resolve(); };');
+  setWorkflow(restoreInventory);
+  run('renderHyperVLabs(workflow.HyperVLabs)');
+  run('window.sqlServerLabHyperVLibraryRestore.open(' + JSON.stringify(restoreRun) + ', "primary")');
+  check('Hyper-V restore is guided for the bound completed SQL instance and hides quarantined backups', () => {
+    assert.match(node('hyperv-labs').innerHTML, /data-hyperv-library-restore="true"/);
+    assert.equal(restoreField('dialog').open, true);
+    assert.equal(restoreField('backup').options.length, 1);
+    assert.equal(restoreField('backup').options[0].value, restoreBackup);
+    assert.match(restoreField('target').textContent, /MSSQLSERVER/);
+  });
+  restoreField('backup').value = restoreBackup;
+  restoreField('database').value = 'NewRestoreDb';
+  restoreField('guest-password').value = 'SyntheticGuest';
+  restoreField('sa-password').value = 'SyntheticSa';
+  const submitRestore = () => {
+    for (const handler of restoreForm.events.get('submit')) handler({preventDefault(){},currentTarget:restoreForm});
+  };
+  submitRestore();
+  check('Hyper-V restore does not submit without explicit confirmation', () => assert.equal(context.restoreDispatches.length, 0));
+  restoreField('confirm').checked = true;
+  run('workflow.HyperVLabs[0].VMName = "ChangedFixture"');
+  submitRestore();
+  check('Hyper-V restore rejects a changed target before sending credentials', () => {
+    assert.equal(context.restoreDispatches.length, 0);
+    assert.match(restoreField('status').textContent, /geändert/);
+  });
+  setWorkflow(restoreInventory);
+  submitRestore();
+  check('Confirmed Hyper-V restore sends a closed action with exact IDs and clears both password fields', () => {
+    assert.equal(context.restoreDispatches.length, 1);
+    const result = context.restoreDispatches[0];
+    assert.equal(result.url, '/api/hyperv/library-restore');
+    assert.equal(result.action, 'RestoreHyperVLibraryBackup');
+    assert.equal(result.payload.confirmed, true);
+    assert.equal(result.payload.parameters.RunId, restoreRun);
+    assert.equal(result.payload.parameters.BackupSetId, restoreBackup);
+    assert.equal(result.payload.parameters.DatabaseName, 'NewRestoreDb');
+    assert.equal(result.payload.parameters.GuestPassword, 'SyntheticGuest');
+    assert.equal(result.payload.parameters.SaPassword, 'SyntheticSa');
+    assert.equal(restoreField('guest-password').value, '');
+    assert.equal(restoreField('sa-password').value, '');
+    assert.equal(restoreField('dialog').open, false);
+  });
+  run('submitUiAction = originalRestoreSubmit;');
   const backupRun = '22222222-2222-4222-8222-222222222222';
   const backupRoot = 'C:/synthetic/Lab_Data';
   const backupWorkflow = { ...fixture, Defaults: { DataRoot: backupRoot },
