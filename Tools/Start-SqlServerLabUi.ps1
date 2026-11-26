@@ -193,9 +193,17 @@ function Get-UiJobSnapshot {
         # Die UI-Meldungen sind Information-Records, damit sie nicht in der
         # Ergebnisvariable eines langen Fachbefehls verschwinden. Hier werden
         # sie bewusst in den Snapshot aufgenommen.
-        $output = @(Receive-Job -Job $Record.Job -Keep -ErrorAction SilentlyContinue 2>&1 6>&1)
+        if ($Record.Action -ceq 'ReadExternalModelSqlPreflight') {
+            $output = @(Receive-Job -Job $Record.Job -Keep -ErrorAction SilentlyContinue 2>$null 6>$null)
+        } else {
+            $output = @(Receive-Job -Job $Record.Job -Keep -ErrorAction SilentlyContinue 2>&1 6>&1)
+        }
     }
-    catch { $output = @($_) }
+    catch {
+        $output = if ($Record.Action -ceq 'ReadExternalModelSqlPreflight') {
+            @('[FEHLER] AI_EXTERNAL_MODEL_SQL_PREFLIGHT_UNCONFIRMED')
+        } else { @($_) }
+    }
     $lines = @($output | ForEach-Object {
         $line = ($_ | Out-String).Trim()
         if ($line) { $line }
@@ -269,6 +277,12 @@ function Start-UiWorkflowJob {
                 $invokeParameters['SaPassword'] = ConvertTo-SecureString -String $plainPassword -AsPlainText -Force
             }
             Write-Output "[START] $JobAction"
+            if ($JobAction -ceq 'ReadExternalModelSqlPreflight') {
+                $receipt = Test-SqlServerLabAiExternalModelSqlPreflight @invokeParameters
+                Write-Output ('[ERGEBNIS] ' + ($receipt | ConvertTo-Json -Depth 8 -Compress))
+                Write-Output '[OK] SQL-Zielprüfung bestätigt.'
+                return
+            }
             $result = Invoke-SqlServerLabWorkflowAction -Action $JobAction @invokeParameters
             if ($JobAction -eq 'ReadFullMaintenancePreview') {
                 & (Get-Module SqlServerLab) { param($View) Format-LabFullMaintenancePreview -View $View } $result.Result
@@ -369,6 +383,15 @@ function Start-UiWorkflowJob {
             Write-Output '[OK] Aktion erfolgreich abgeschlossen. Die Workflow-Ansicht wird aktualisiert.'
         }
         catch {
+            if ($JobAction -ceq 'ReadExternalModelSqlPreflight') {
+                $code = 'AI_EXTERNAL_MODEL_SQL_PREFLIGHT_UNCONFIRMED'
+                $module = Get-Module SqlServerLab
+                if ($module) {
+                    $code = & $module { param($message) Get-LabGuidedExternalModelSqlPreflightCode -Message $message } $_.Exception.Message
+                }
+                Write-Output ('[FEHLER] ' + $code)
+                throw $code
+            }
             Write-Output "[FEHLER] $($_.Exception.Message)"
             throw
         }
@@ -1594,6 +1617,35 @@ try {
                 }
                 continue
             }
+            if ($path -ceq '/api/ai-external-model/sql-preflight') {
+                try {
+                    if ($context.Request.HttpMethod -cne 'POST' -or $context.Request.Url.Query -or
+                        $context.Request.ContentType -notmatch '^application/json(?:\s*;|$)' -or
+                        [string]$context.Request.Headers['Origin'] -cne $url.TrimEnd('/')) { throw 'AI_EXTERNAL_MODEL_SQL_PREFLIGHT_FORM_INVALID' }
+                    $bodyRead = Read-UiJsonRequestBody -Request $context.Request -MaxBytes 32768
+                    if (-not $bodyRead.Allowed) {
+                        Write-UiResponse -Context $context -Body $bodyRead.Code -StatusCode $bodyRead.StatusCode -NoStore
+                        continue
+                    }
+                    $parameters = & (Get-Module SqlServerLab) { param($Body) Get-LabGuidedExternalModelSqlPreflightRequest -Body $Body } $bodyRead.Body
+                    $action = 'ReadExternalModelSqlPreflight'
+                    if (@($jobs.Values | Where-Object { $_.Action -ceq $action -and $_.Job.State -in @('NotStarted','Running') }).Count) {
+                        Write-UiResponse -Context $context -Body '{"Code":"AI_EXTERNAL_MODEL_SQL_PREFLIGHT_ALREADY_RUNNING"}' -ContentType 'application/json; charset=utf-8' -StatusCode 409 -NoStore
+                        continue
+                    }
+                    $record = Start-UiWorkflowJob -Action $action -Parameters $parameters
+                    $jobs[$record.Id] = $record
+                    Write-UiResponse -Context $context -Body (@{id=$record.Id;action=$action} | ConvertTo-Json -Compress) -ContentType 'application/json; charset=utf-8' -StatusCode 202 -NoStore
+                } catch {
+                    $code = if ($_.Exception.Message -ceq 'AI_EXTERNAL_MODEL_SQL_PLAN_EXPIRED') { $_.Exception.Message }
+                        else { 'AI_EXTERNAL_MODEL_SQL_PREFLIGHT_FORM_INVALID' }
+                    Write-UiResponse -Context $context -Body (@{Code=$code} | ConvertTo-Json -Compress) -ContentType 'application/json; charset=utf-8' -StatusCode 400 -NoStore
+                } finally {
+                    $parameters = $null
+                    $bodyRead = $null
+                }
+                continue
+            }
             if ($path -ceq '/api/ai-external-model/endpoint') {
                 try {
                     if ($context.Request.HttpMethod -cne 'POST' -or $context.Request.Url.Query -or
@@ -1900,6 +1952,7 @@ try {
                 $body = $bodyRead.Body
                 $request = $body | ConvertFrom-Json -Depth 8
                 $action = [string]$request.action
+                if ($action -eq 'ReadExternalModelSqlPreflight') { throw 'AI_EXTERNAL_MODEL_SQL_PREFLIGHT_DIRECT_ENDPOINT_REQUIRED' }
                 if ($action -in @('InitializeCms','AdoptCms')) {
                     try { & (Get-Module SqlServerLab) { param($json,$name) Assert-LabCmsManagementWorkflowJsonShape -Json $json -Action $name } $body $action }
                     catch { throw 'CMS_MANAGEMENT_REQUEST_INVALID' }

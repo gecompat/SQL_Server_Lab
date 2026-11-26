@@ -15,7 +15,7 @@ try {
         param($FixturePlan,$PlanFile,$FixturePem)
         $fixture=[pscustomobject]@{ Probes=0; VaultReads=0; Confirmed=$false; TrustedRoot=$false; KeyBound=$false; Drift=$false
             Prompts=[Collections.Generic.List[string]]::new(); Inputs=[Collections.Generic.Queue[object]]::new()
-            Logs=[Collections.Generic.List[string]]::new(); Assertions=0 }
+            Logs=[Collections.Generic.List[string]]::new(); Assertions=0; SqlAllowed=$false; SqlChecks=0 }
         $dummy=[Security.SecureString]::new()
         foreach ($letter in 'SyntheticOnlyEndpointKey'.ToCharArray()) { $dummy.AppendChar($letter) }
         $dummy.MakeReadOnly()
@@ -45,7 +45,25 @@ try {
             $receipt | Add-Member -NotePropertyName PrivateCanary -NotePropertyValue 'FIXTURE_PRIVATE_CANARY'
             $receipt
         }
-        function Read-LabConfirm { param($Prompt,$Default) $fixture.Confirmed }
+        function Read-LabConfirm {
+            param($Prompt,$Default)
+            if ($Prompt -like 'Zur getrennten SQL-Zielprüfung*' -or $Prompt -like 'Datenbank * verwaltetem SQL-Zugang*') {
+                return $fixture.SqlAllowed
+            }
+            $fixture.Confirmed
+        }
+        function Select-LabAiTargetInteractive {
+            param($Prompt)
+            [pscustomobject]@{RunId='11111111-2222-4333-8444-555555555555';InstanceId='primary'}
+        }
+        function Test-SqlServerLabAiExternalModelSqlPreflight {
+            param($SqlPlan,$RunId,$InstanceId)
+            if ($RunId -cne '11111111-2222-4333-8444-555555555555' -or $InstanceId -cne 'primary' -or $SqlPlan.DatabaseName -cne 'AiLab') {
+                throw 'Fixture target mismatch'
+            }
+            $fixture.SqlChecks++
+            [pscustomobject]@{Status='SQL_PREFLIGHT_VERIFIED';SqlPlanKey=$SqlPlan.SqlPlanKey;RunId=$RunId;InstanceId=$InstanceId}
+        }
         function Read-LabConsoleTextInput {
             param($Prompt,$Default,[switch]$MaskInput,[switch]$AsSecureString)
             $fixture.Prompts.Add("$MaskInput/$AsSecureString")
@@ -98,6 +116,19 @@ try {
                 ($fixture.Logs -join ' ') -match '"DatabaseName": "AiLab"' -and
                 $fixture.Inputs.Count -eq 0) 'CLI hands off the exact Plan and Receipt without another network request or path input'
 
+            $sqlEntry=@(Show-LabHostModelsMenu | Where-Object Id -CEQ 'ExternalModelSqlPreflight')
+            Assert-GuidedEndpoint ($sqlEntry.Count -eq 1 -and $fixture.SqlChecks -eq 0) 'SQL preflight is separately reachable and the prior handoff did not query SQL'
+            $sqlPlan=Get-SqlServerLabAiExternalModelSqlPlan -Plan $FixturePlan -EndpointReceipt $result -DatabaseName AiLab
+            $sqlFile=Join-Path (Split-Path -Parent $PlanFile) 'guided-model-sql-plan.json'
+            [IO.File]::WriteAllText($sqlFile,($sqlPlan|ConvertTo-Json -Depth 10 -Compress))
+            $fixture.Inputs.Enqueue([pscustomobject]@{Status='Confirmed';Value=$sqlFile})
+            Invoke-LabMenuAction -ActionName $sqlEntry[0].Id
+            Assert-GuidedEndpoint ($fixture.SqlChecks -eq 0) 'CLI declined SQL target does not open SQL'
+            $fixture.SqlAllowed=$true
+            $fixture.Inputs.Enqueue([pscustomobject]@{Status='Confirmed';Value=$sqlFile})
+            Invoke-LabMenuAction -ActionName $sqlEntry[0].Id
+            Assert-GuidedEndpoint ($fixture.SqlChecks -eq 1 -and ($fixture.Logs -join ' ') -match 'SQL_PREFLIGHT_VERIFIED') 'CLI confirmed SQL preflight passes the plan and exact target to the public API'
+
             $tokens=$null;$errors=$null
             $server=[Management.Automation.Language.Parser]::ParseFile((Join-Path $script:ModuleRoot 'Tools/Start-SqlServerLabUi.ps1'),[ref]$tokens,[ref]$errors)
             if ($errors.Count) { throw 'GUIDED_ENDPOINT_ROUTE_PARSE' }
@@ -106,8 +137,8 @@ try {
             $handler=[scriptblock]::Create('foreach ($once in @(1)) '+$route.Clauses[0].Item2.Extent.Text)
             . (Join-Path $script:ModuleRoot 'Tools/WorkflowUiJsonBody.ps1')
             function Write-UiResponse {
-                param($Context,$Body,$ContentType,$StatusCode=200)
-                [pscustomobject]@{StatusCode=$StatusCode;Body=$Body}
+                param($Context,$Body,$ContentType,$StatusCode=200,[switch]$NoStore)
+                [pscustomobject]@{StatusCode=$StatusCode;Body=$Body;NoStore=$NoStore.IsPresent}
             }
             $url='http://127.0.0.1:8484/'
             $payload.TrustedRootPem=''
@@ -123,6 +154,37 @@ try {
                 $allowed=& $handler
                 Assert-GuidedEndpoint ($allowed.StatusCode -eq 200 -and $fixture.Probes -eq 4 -and
                     ($allowed.Body|ConvertFrom-Json).PlanKey -ceq $FixturePlan.PlanKey) 'Actual route uses the bounded reader and confirmed public probe'
+            } finally { $stream.Dispose() }
+            $route=$server.Find({param($node) $node -is [Management.Automation.Language.IfStatementAst] -and
+                $node.Clauses[0].Item1.Extent.Text -ceq '$path -ceq ''/api/ai-external-model/sql-preflight'''},$true)
+            $preflightHandler=[scriptblock]::Create('foreach ($once in @(1)) '+$route.Clauses[0].Item2.Extent.Text)
+            $jobs=@{}
+            $created=[pscustomobject]@{Count=0;Bound=$false}
+            function Start-UiWorkflowJob {
+                param($Action,$Parameters)
+                $created.Count++
+                $created.Bound=$Action -ceq 'ReadExternalModelSqlPreflight' -and $Parameters.Count -eq 3 -and
+                    $Parameters.SqlPlan.SqlPlanKey -ceq $sqlPlan.SqlPlanKey -and $Parameters.InstanceId -ceq 'primary' -and
+                    $Parameters.RunId -ceq '11111111-2222-4333-8444-555555555555'
+                [pscustomobject]@{Id='fixture-job';Action=$Action;Job=[pscustomobject]@{State='Running'}}
+            }
+            $preflightBytes=[Text.Encoding]::UTF8.GetBytes((@{parameters=@{SqlPlan=$sqlPlan;RunId='11111111-2222-4333-8444-555555555555';InstanceId='primary'}} |
+                ConvertTo-Json -Depth 9 -Compress))
+            $stream=[IO.MemoryStream]::new($preflightBytes)
+            $context.Request.Url=[Uri]($url+'api/ai-external-model/sql-preflight')
+            $context.Request.Headers.Origin='http://127.0.0.1:8485'
+            $context.Request.ContentLength64=[long]$preflightBytes.Length
+            $context.Request.InputStream=$stream
+            try {
+                $denied=& $preflightHandler
+                Assert-GuidedEndpoint ($denied.StatusCode -eq 400 -and $denied.NoStore -and $stream.Position -eq 0 -and $created.Count -eq 0) 'Foreign origin cannot queue the SQL probe'
+                $context.Request.Headers.Origin=$url.TrimEnd('/')
+                $allowed=& $preflightHandler
+                Assert-GuidedEndpoint ($allowed.StatusCode -eq 202 -and $allowed.NoStore -and $created.Count -eq 1 -and $created.Bound -and
+                    $jobs.ContainsKey('fixture-job')) 'Valid request queues one bound transient SQL read'
+                $stream.Position=0
+                $busy=& $preflightHandler
+                Assert-GuidedEndpoint ($busy.StatusCode -eq 409 -and $created.Count -eq 1) 'A second request cannot queue while the read is active'
             } finally { $stream.Dispose() }
         } finally { $dummy.Dispose() }
         Write-Host "GUIDED HTTPS MODEL ENDPOINT: PASS ($($fixture.Assertions); synthetic transport)"

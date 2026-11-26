@@ -153,6 +153,7 @@
       <button id="external-model-plan-open" type="button" class="button secondary">Lokalen HTTPS-Modellendpunkt planen</button>
       <button id="external-model-endpoint-open" type="button" class="button secondary">Geplanten HTTPS-Modellendpunkt prüfen</button>
       <button id="external-model-sql-plan-open" type="button" class="button secondary">SQL-Plan für bestätigten Modellendpunkt erstellen</button>
+      <button id="external-model-sql-preflight-open" type="button" class="button secondary">SQL-Ziel für den Modellplan prüfen</button>
       <button id="ovms-gateway-open" type="button" class="button secondary">Eigene OVMS-HTTPS-Sitzungen verwalten</button>
       <button id="persistent-fixture-open" type="button" class="button secondary">Persistente Retrieval-Collections</button>
       <button id="ai-scenario-plan-open" type="button" class="button secondary">Vector-Core-Szenarioplan lesen</button>
@@ -1617,7 +1618,22 @@
       <label id="external-model-sql-plan-result-box" hidden>Gebundener SQL-Plan (JSON)<textarea id="external-model-sql-plan-result" rows="8" readonly></textarea></label>
       <div class="build-actions">
         <button id="external-model-sql-plan-submit" type="submit" class="button">SQL-Plan erstellen</button>
+        <button id="external-model-sql-plan-preflight" type="button" class="button secondary" hidden>Zur SQL-Zielprüfung</button>
         <button id="external-model-sql-plan-close" type="button" class="button secondary">Schließen</button>
+      </div>
+    </form>
+  </dialog>
+  <dialog id="external-model-sql-preflight-dialog" aria-labelledby="external-model-sql-preflight-title">
+    <h2 id="external-model-sql-preflight-title">SQL-Ziel für den Modellplan prüfen</h2>
+    <p>Die Prüfung liest Datenbankzustand, Rechte und Objektnamen über den verwalteten SQL-Zugang.</p>
+    <form id="external-model-sql-preflight-form">
+      <label>Gebundener SQL-Plan (JSON)<textarea id="external-model-sql-preflight-plan" rows="6" maxlength="16384" required spellcheck="false"></textarea></label>
+      <label>Laufende SQL-2025-Instanz<select id="external-model-sql-preflight-target" required></select></label>
+      <label><input id="external-model-sql-preflight-confirm" type="checkbox" required> Schreibgeschützte SQL-Prüfung für diese Auswahl bestätigen</label>
+      <p id="external-model-sql-preflight-status" role="status"></p>
+      <div class="build-actions">
+        <button id="external-model-sql-preflight-submit" type="submit" class="button">SQL-Ziel prüfen</button>
+        <button id="external-model-sql-preflight-close" type="button" class="button secondary">Schließen</button>
       </div>
     </form>
   </dialog>
