@@ -2181,7 +2181,17 @@ einer isolierten temporären Backup-Bibliothek. Die Abnahme verlangt einen
 wiederverwendbaren Sicherungssatz und genau einen an VM und Storage-Plan
 gebundenen Beleg für die Bereinigung der Backup-Gastdatei. Anschließend
 prüft sie den geführten Restore, identische Zielinhalte und die
-Kopienbereinigung. Der native Nachweis des erweiterten Backup-Pfads steht aus.
+Kopienbereinigung. Der kombinierte
+[Key18-Lauf 45798817273](https://github.com/gecompat/SQL_Server_Lab/actions/runs/45798817273)
+bestand am 26.11.2026 auf Main-Commit `dd9eba91`. Eine eigene SQL-2025-Developer-VM
+aus versiegelter Vorlage bestätigte den gebundenen Speicher, einen
+wiederverwendbaren Sicherungssatz mit bereinigter Gastdatei und den Restore
+mit exakt denselben synthetischen Zeilen in der neuen Zieldatenbank.
+Die Fixture legte die Bibliotheksdateien in ihrem temporären Testverzeichnis an.
+Die Host-Speicherbindung wurde über die registrierte Konfiguration geprüft.
+Die unabhängige Inventarprüfung nach Laufende bestätigte `REMOVED`,
+die Abwesenheit der gebundenen VM und beider Laufwerke sowie keine
+Cleanupfehler. Menüauswahl und Browserversand sind separat synthetisch geprüft.
 
 Der [Key18-Lauf 45773328285](https://github.com/gecompat/SQL_Server_Lab/actions/runs/45773328285)
 bestätigte den verifizierten Speicher, die SQL-Bereitschaft und den Cleanup
@@ -2561,8 +2571,15 @@ Die Browser-Fixtures prüfen Auswahlwechsel, geschlossene Eingaben und die
 Weitergabe unter der gebundenen SQL-Quellaktion. Sieben gerenderte
 Chromium-Fälle prüfen das Formular mit synthetischen Quellen und
 abgefangenem Auftrag. Der native Hyper-V-Harness prüft den neuen Befund mit
-seiner eigenen Testdatenbank. Ein erfolgreicher nativer Lauf für diesen
-Zusatz steht aus.
+seiner eigenen Testdatenbank. Der
+[Key18-Lauf 45824625641](https://github.com/gecompat/SQL_Server_Lab/actions/runs/45824625641)
+bestand am 26.11.2026 auf Main-Commit `0bdb68dd`. Er bestätigte die
+benannte SQL-2025-Developer-Quelldatenbank, Run-, Instanz- und Providerbindung
+sowie den beobachteten SQL-Agent-Befund ohne Jobs für diese Testdatenbank.
+Zwei eigene Hyper-V-Labs liefen gleichzeitig. Vorlage und Laufmetadaten
+blieben unverändert. Der Harness meldete beide Runs als `REMOVED` und
+prüfte die Abwesenheit ihrer VMs und Laufwerke. Der Plan behielt
+`TransferAuthority=NONE`.
 
 ## Prospektiver External-Languages-Capability-Entscheid
 
@@ -5713,7 +5730,26 @@ Windows-Authentifizierung im gebundenen Gast aus und vergleicht Zeile,
 VM-Bindung und Skript-Hash mit dem Journal. Die bestehende Abnahme prüft
 anschließend die Entfernung des eigenen Laufs, der VM und ihrer Laufwerke.
 CLI-Menü und Browserbestätigung werden mit separaten Fixtures geprüft.
-Der native Lauf für diese beiden Aktionen steht noch aus.
+Der [Key18-Lauf 45842902247](https://github.com/gecompat/SQL_Server_Lab/actions/runs/45842902247)
+bestand am 26.11.2026 auf Main-Commit `8c35d64d`. Die eigene
+SQL-2025-Developer-VM bestätigte die gebundene Datenbankanlage und die
+Ausführung eines SQL-Skriptbatches mit Windows-Authentifizierung. Das Journal
+band VM und SHA-256 der Skriptdatei. Die anschließende SQL-Abfrage las den
+erwarteten synthetischen Wert aus der neuen Datenbank. Die unabhängige
+Bestandsprüfung bestätigte `REMOVED`, die Abwesenheit der VM und beider
+Laufwerke sowie keine Cleanupfehler.
+
+### Native Abnahme der SSIS-Katalogvoraussetzungen
+
+Der manuelle Main-Modus `guided-ssis-catalog-capability-acceptance`
+verwendet eine eigene SQL-2025-Developer-VM aus der expliziten
+Prepared-Vorlage. Eine separate SQL-Abfrage prüft, dass SSISDB fehlt.
+Die anschließende geführte Fachabfrage muss genau diese SQL-Version,
+`MISSING` für SSISDB und `BLOCKED` für die Fixturebereitschaft liefern.
+Die drei Run-Dateien bleiben bytegleich. Das bestehende Cleanup prüft
+die Abwesenheit der eigenen VM und ihrer Laufwerke. Dieser Modus prüft
+den nativen Fehlbestand. Eine SSISDB-Ausführung hat einen eigenen Nachweis.
+Der neue native Lauf steht aus.
 
 ### Ein-Datenbank-Containertransfer
 
