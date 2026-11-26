@@ -1174,6 +1174,7 @@ function Show-LabHostModelsMenu {
         New-LabConsoleItem -Id AiModel -Label 'Vorhandenes Ollama-Modell aufrufen' -Value 'lokal oder explizit freigegebene Cloud-Lane' -Shortcut 2
         New-LabConsoleItem -Id HostServiceLifecycle -Label 'Eigene llama.cpp-Sitzung auswählen und stoppen'
         New-LabConsoleItem -Id LlamaRuntimeInventory -Label 'Vorhandene llama.cpp-Pakete prüfen' -Value 'Dateibefund · Backend und Build' -Shortcut 3
+        New-LabConsoleItem -Id LlamaCppStartPlanPreview -Label 'llama.cpp: reine Startvorschau' -Value 'Installations- und GGUF-Dateien prüfen'
         New-LabConsoleItem -Id HostServiceStart -Label 'Eigene llama.cpp-Sitzung geführt starten' -Value 'Eingaben prüfen und Start bestätigen' -Shortcut 4
         New-LabConsoleItem -Id AiComputeInventory -Label 'CPU, GPU und NPU erfassen' -Value 'Lesende Geräteübersicht' -Shortcut 5
         New-LabConsoleItem -Id AiRuntimeCapability -Label 'llama.cpp-Eignung prüfen' -Value 'Paketdateien und erkannte Geräte' -Shortcut 6

@@ -6314,7 +6314,9 @@ Provider-Smokes bleiben ausdrücklich NOT_EXECUTED.
 `Invoke-LlamaCppStartPlanConsoleChecks.ps1` führt den tatsächlichen Menü-/
 Dialogpfad bis in Public-Core und bestehende Files-only-Reader auf synthetischen
 Dateien aus. Console-Menüleaves werden gespeist; die echte Texteingabeleaf wird
-mit isolierter Fallbackeingabe geprüft. Cancel an allen Schritten, MaskInput-
+mit isolierter Fallbackeingabe geprüft. Die Route aus **Host-Dienste und Modelle**
+ist mit einmaliger Dateivorschau und Abbruch vor dem Core-Aufruf geprüft.
+Cancel an allen Schritten, MaskInput-
 Semantik, exakte zehn Argumente/Defaults, skalare Grenzen, fremde Menü-IDs,
 strikte sichere DTOs/Fehler sowie sichtbarer Drift und Reparse/GGUF-Vetos sind
 erforderlich. Start/Stop, Compute, HTTP, Secrets und Defaults sind gesperrt.

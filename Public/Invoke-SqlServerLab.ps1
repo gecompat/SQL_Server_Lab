@@ -198,6 +198,7 @@ function Invoke-LabMenuAction {
     if ($ActionName -eq 'EvaluationRefreshPlan') { Invoke-LabEvaluationRefreshPlanInteractive; return }
     if ($ActionName -eq 'HostServiceStart') { Invoke-LabLlamaCppStartInteractive; return }
     if ($ActionName -eq 'LlamaRuntimeInventory') { Show-LabLlamaCppRuntimeInventoryInteractive; return }
+    if ($ActionName -eq 'LlamaCppStartPlanPreview') { Invoke-LabLlamaCppStartPlanInteractive; return }
     if ($ActionName -eq 'AiRuntimeCapability') { Show-LabAiRuntimeCapabilityInteractive; return }
     if ($ActionName -eq 'OvmsUpstream') { Invoke-LabOvmsUpstreamInteractive; return }
     if ($ActionName -eq 'ExternalModelPlan') { Invoke-LabGuidedExternalModelPlanInteractive; return }
