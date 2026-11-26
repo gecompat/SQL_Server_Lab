@@ -2169,10 +2169,12 @@ verifiziertes SQL-2025-Developer-Prepared-Artifact. Der Prepared-Pfad
 erstellt einen eigenen SQL-Run, lässt die Windows-Aktivierung unverändert
 und benötigt keine Zugangsdaten oder Datenträger eines vorhandenen Slots.
 Der Workflow weist gemischte Eingaben vor dem Arrange ab. Er legt eine
-synthetische Datenbank an, sichert sie in einer isolierten temporären
-Backup-Bibliothek und prüft anschließend den tatsächlichen Worker-Einstieg,
-die identischen Zielinhalte und die Kopienbereinigung. Der native Lauf
-dieses Modus steht aus.
+synthetische Datenbank an und sichert sie über die geführte Fachaktion in
+einer isolierten temporären Backup-Bibliothek. Die Abnahme verlangt einen
+wiederverwendbaren Sicherungssatz und genau einen an VM und Storage-Plan
+gebundenen Beleg für die Bereinigung der Backup-Gastdatei. Anschließend
+prüft sie den geführten Restore, identische Zielinhalte und die
+Kopienbereinigung. Der native Nachweis des erweiterten Backup-Pfads steht aus.
 
 ## Getrennte AutoStart-Browservorschau
 
