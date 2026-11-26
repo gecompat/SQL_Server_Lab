@@ -5730,7 +5730,14 @@ Windows-Authentifizierung im gebundenen Gast aus und vergleicht Zeile,
 VM-Bindung und Skript-Hash mit dem Journal. Die bestehende Abnahme prüft
 anschließend die Entfernung des eigenen Laufs, der VM und ihrer Laufwerke.
 CLI-Menü und Browserbestätigung werden mit separaten Fixtures geprüft.
-Der native Lauf für diese beiden Aktionen steht noch aus.
+Der [Key18-Lauf 45842902247](https://github.com/gecompat/SQL_Server_Lab/actions/runs/45842902247)
+bestand am 26.11.2026 auf Main-Commit `8c35d64d`. Die eigene
+SQL-2025-Developer-VM bestätigte die gebundene Datenbankanlage und die
+Ausführung eines SQL-Skriptbatches mit Windows-Authentifizierung. Das Journal
+band VM und SHA-256 der Skriptdatei. Die anschließende SQL-Abfrage las den
+erwarteten synthetischen Wert aus der neuen Datenbank. Die unabhängige
+Bestandsprüfung bestätigte `REMOVED`, die Abwesenheit der VM und beider
+Laufwerke sowie keine Cleanupfehler.
 
 ### Ein-Datenbank-Containertransfer
 
