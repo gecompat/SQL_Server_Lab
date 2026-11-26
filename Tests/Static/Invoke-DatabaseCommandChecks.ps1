@@ -148,7 +148,7 @@ try {
             $events.Secrets += $secret
             return $secret
         }
-        function Invoke-LabGuidedHyperVDatabaseCreate {param($RunId,$InstanceId,$DatabaseName,$GuestUserName,$GuestPassword,$SaPassword)
+        function Invoke-LabGuidedHyperVDatabaseCreate {param($RunId,$InstanceId,$DatabaseName,$GuestUserName,[SecureString]$GuestPassword,[SecureString]$SaPassword)
             $events.Calls++
             $events.Bound = $RunId -ceq '33333333-2222-4333-8444-555555555555' -and $InstanceId -ceq 'primary' -and
                 $DatabaseName -ceq 'GuidedFixture' -and $GuestUserName -ceq 'Administrator' -and
